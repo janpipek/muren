@@ -1,6 +1,8 @@
 use std::{env, path::PathBuf};
 use std::fs::rename;
 
+use colored::Colorize;
+
 
 fn ensure_extension_many(files: &Vec<String>, extension: &String, dry: bool) {
     for entry in files {
@@ -13,12 +15,12 @@ fn ensure_extension_one(path: PathBuf, extension: &String, dry: bool) {
     let mut new_name = path.clone();
     new_name.set_extension(extension);
     if dry {
-        println!("Would rename {0} to {1}.", path.display(), new_name.display());
+        println!("- {0} → {1}", path.to_string_lossy().red(), new_name.to_string_lossy().green())
     }
     else {
         match rename(path.clone(), new_name.clone()) {
-            Ok(_) => println!("Renamed {0} to {1}.", path.display(), new_name.display()),
-            Err(_) => eprintln!("Failed to rename {0} to {1}.", path.display(), new_name.display()),
+            Ok(_) => println!("{0} {1} → {2}", "✓".green(), path.to_string_lossy().red(), new_name.to_string_lossy().green()),
+            Err(_) => eprintln!("{0} {1} → {2}", "✗".red(), path.to_string_lossy().red(), new_name.to_string_lossy().green()),
         }
     }
 }
