@@ -58,6 +58,8 @@ fn remove_string_one(path: &Path, pattern: &String, dry: bool) {
 
 fn main() {
     let command = command!()
+        .about("(mu)ltiple (ren)ames")
+        .arg_required_else_help(true)
         .arg(
             arg!(
                 -d --dry ... "Dry run"
@@ -99,28 +101,30 @@ fn main() {
         );
     let matches = command.get_matches();
 
-    if let Some(matches) = matches.subcommand_matches("setext") {
-        ensure_extension_many(
-            matches
-                .get_many::<PathBuf>("path")
-                .unwrap()
-                .cloned()
-                .collect(),
-            matches.get_one("extension").unwrap(),
-            matches.get_flag("dry"),
-        );
-    }
-
-    if let Some(matches) = matches.subcommand_matches("remove") {
-        remove_string_many(
-            matches
-                .get_many::<PathBuf>("path")
-                .unwrap()
-                .cloned()
-                .collect(),
-            matches.get_one("pattern").unwrap(),
-            matches.get_flag("dry"),
-        );
+    match matches.subcommand() {
+        Some(("setext", matches)) => {
+            ensure_extension_many(
+                matches
+                    .get_many::<PathBuf>("path")
+                    .unwrap()
+                    .cloned()
+                    .collect(),
+                matches.get_one("extension").unwrap(),
+                matches.get_flag("dry"),
+            );
+        },
+        Some(("remove", matches)) => {
+            remove_string_many(
+                matches
+                    .get_many::<PathBuf>("path")
+                    .unwrap()
+                    .cloned()
+                    .collect(),
+                matches.get_one("pattern").unwrap(),
+                matches.get_flag("dry"),
+            );
+        }
+        _ => (),
     }
 
     /* let mut args: Vec<String> = env::args().collect();
