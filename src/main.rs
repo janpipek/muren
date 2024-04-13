@@ -4,16 +4,53 @@ use std::{env, path::Path, path::PathBuf};
 use clap::{arg, command, value_parser, Arg, ArgAction, Command};
 use colored::Colorize;
 
-fn ensure_extension_many(files: Vec<PathBuf>, extension: &String, dry: bool) {
-    for entry in files {
-        ensure_extension_one(&entry, extension, dry);
+struct RenameIntent {
+    path: PathBuf,
+    new_name: PathBuf,
+}
+
+fn confirm_intents(intents: &Vec<RenameIntent>) -> bool {
+    println!("The following files will be renamed:");
+    print_intents(intents);
+    println!("Do you want to continue? [y/N] ");
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input).unwrap();
+    input.trim().to_lowercase() == "y"
+}
+
+fn print_intents(intents: &Vec<RenameIntent>) {
+    for intent in intents {
+        if intent.path == intent.new_name {
+            continue;
+        }
+        println!(
+            "- {0} → {1}",
+            intent.path.to_string_lossy().red(),
+            intent.new_name.to_string_lossy().green()
+        );
     }
 }
 
-fn ensure_extension_one(path: &PathBuf, extension: &String, dry: bool) {
-    let mut new_name = path.clone();
-    new_name.set_extension(extension);
-    maybe_rename(path, new_name.as_path(), dry);
+fn ensure_extension_many(files: Vec<PathBuf>, extension: &String, dry: bool, confirm: bool) {
+    let intents: Vec<RenameIntent> = files
+        .iter()
+        .map(|path| {
+            let mut new_name = path.clone();
+            new_name.set_extension(extension);
+            RenameIntent {
+                path: path.clone(),
+                new_name,
+            }
+        })
+        .collect();
+    if dry {
+        println!("The following files would be renamed:");
+        print_intents(&intents);
+    } else if confirm || confirm_intents(&intents) {
+        for intent in intents {
+            maybe_rename(&intent.path, &intent.new_name, dry);
+        }
+    };
 }
 
 fn maybe_rename(path: &Path, new_name: &Path, dry: bool) {
@@ -41,19 +78,24 @@ fn maybe_rename(path: &Path, new_name: &Path, dry: bool) {
     }
 }
 
-fn remove_string_many(files: Vec<PathBuf>, pattern: &String, dry: bool) {
-    for entry in files {
-        remove_string_one(&entry, pattern, dry);
-    }
-}
-
-fn remove_string_one(path: &Path, pattern: &String, dry: bool) {
-    if path.to_string_lossy().contains(pattern) {
-        let new_name = path.to_string_lossy().replace(pattern, "");
-        maybe_rename(path, Path::new(&new_name), dry);
-    } else {
-        println!("= {0}", path.to_string_lossy());
-    }
+fn remove_string_many(files: Vec<PathBuf>, pattern: &String, dry: bool, confirm: bool) {
+    let intents: Vec<RenameIntent> = files
+        .iter()
+        .map(|path| {
+            let new_name = path.to_string_lossy().replace(pattern, "");
+            RenameIntent {
+                path: path.clone(),
+                new_name: PathBuf::from(new_name),
+            }
+        })
+        .collect();
+    if dry {
+        print_intents(&intents);
+    } else if confirm || confirm_intents(&intents) {
+        for intent in intents {
+            maybe_rename(&intent.path, &intent.new_name, dry);
+        }
+    };
 }
 
 fn main() {
@@ -67,8 +109,15 @@ fn main() {
             .global(true)
             .action(clap::ArgAction::SetTrue),
         )
+        .arg(
+            arg!(
+                -y --yes ... "Automatically confirm all actions"
+            )
+            .global(true)
+            .action(clap::ArgAction::SetTrue),
+        )
         .subcommand(
-            Command::new("setext")
+            Command::new("set-ext")
                 .about("Change extension")
                 .arg(
                     Arg::new("extension")
@@ -102,7 +151,7 @@ fn main() {
     let matches = command.get_matches();
 
     match matches.subcommand() {
-        Some(("setext", matches)) => {
+        Some(("set-ext", matches)) => {
             ensure_extension_many(
                 matches
                     .get_many::<PathBuf>("path")
@@ -111,8 +160,9 @@ fn main() {
                     .collect(),
                 matches.get_one("extension").unwrap(),
                 matches.get_flag("dry"),
+                matches.get_flag("yes"),
             );
-        },
+        }
         Some(("remove", matches)) => {
             remove_string_many(
                 matches
@@ -122,19 +172,9 @@ fn main() {
                     .collect(),
                 matches.get_one("pattern").unwrap(),
                 matches.get_flag("dry"),
+                matches.get_flag("yes"),
             );
         }
         _ => (),
     }
-
-    /* let mut args: Vec<String> = env::args().collect();
-    args.remove(0); // The executable itself
-    let is_dry = is_dry(&mut args);
-    match args.pop() {
-        Some(extension) => ensure_extension_many(&args, &extension, is_dry),
-        None => {
-            eprintln!("Usage: muren <*files> <extension>");
-            std::process::exit(-1);
-        }
-    }*/
 }
