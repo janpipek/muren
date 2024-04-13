@@ -20,6 +20,9 @@ fn confirm_intents(intents: &Vec<RenameIntent>) -> bool {
 
 fn print_intents(intents: &Vec<RenameIntent>) {
     for intent in intents {
+        if intent.path == intent.new_name {
+            continue;
+        }
         println!(
             "- {0} → {1}",
             intent.path.to_string_lossy().red(),
