@@ -10,8 +10,8 @@ struct RenameIntent {
 }
 
 enum RenameCommand {
-    SetExt (String),
-    Remove (String) 
+    SetExt(String),
+    Remove(String),
 }
 
 fn confirm_intents(intents: &Vec<RenameIntent>) -> bool {
@@ -86,17 +86,13 @@ fn maybe_rename(path: &Path, new_name: &Path, dry: bool) {
 
 fn extract_command(args_matches: &ArgMatches) -> Option<RenameCommand> {
     match args_matches.subcommand() {
-        Some(("set-ext", matches)) => Some(
-            RenameCommand::SetExt(
-                matches.get_one::<&String>("extension").unwrap().to_string()
-            )
-        ),
-        Some(("remove", matches)) => Some(
-            RenameCommand::Remove(
-                matches.get_one::<&String>("pattern").unwrap().to_string()
-            )
-        ),
-        _ => None
+        Some(("set-ext", matches)) => Some(RenameCommand::SetExt(
+            matches.get_one::<String>("extension").unwrap().clone(),
+        )),
+        Some(("remove", matches)) => Some(RenameCommand::Remove(
+            matches.get_one::<String>("pattern").unwrap().clone(),
+        )),
+        _ => None,
     }
 }
 
@@ -165,9 +161,17 @@ fn main() {
 
     match extract_command(&matches) {
         Some(command) => {
+            let files: Vec<PathBuf> = matches
+                .subcommand()
+                .unwrap()
+                .1
+                .get_many::<PathBuf>("path")
+                .unwrap()
+                .cloned()
+                .collect();
             let dry = matches.get_flag("dry");
             let confirm = matches.get_flag("yes");
-            let files = matches.get_many::<PathBuf>("path").unwrap().cloned().collect();
+            // let files = matches.get_many::<PathBuf>("path").unwrap().cloned().collect();
             process_command(command, files, dry, confirm);
         }
         None => {
