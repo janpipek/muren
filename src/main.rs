@@ -1,12 +1,17 @@
 use std::fs::rename;
 use std::{env, path::Path, path::PathBuf};
 
-use clap::{arg, command, value_parser, Arg, ArgAction, Command};
+use clap::{arg, command, value_parser, Arg, ArgAction, ArgMatches, Command};
 use colored::Colorize;
 
 struct RenameIntent {
     path: PathBuf,
     new_name: PathBuf,
+}
+
+enum RenameCommand {
+    SetExt(String),
+    Remove(String),
 }
 
 fn confirm_intents(intents: &Vec<RenameIntent>) -> bool {
@@ -31,26 +36,27 @@ fn print_intents(intents: &Vec<RenameIntent>) {
     }
 }
 
-fn ensure_extension_many(files: Vec<PathBuf>, extension: &String, dry: bool, confirm: bool) {
-    let intents: Vec<RenameIntent> = files
+fn suggest_renames(files: Vec<PathBuf>, command: RenameCommand) -> Vec<RenameIntent> {
+    files
         .iter()
-        .map(|path| {
-            let mut new_name = path.clone();
-            new_name.set_extension(extension);
-            RenameIntent {
-                path: path.clone(),
-                new_name,
+        .map(|path| match &command {
+            RenameCommand::SetExt(extension) => {
+                let mut new_name = path.clone();
+                new_name.set_extension(extension);
+                RenameIntent {
+                    path: path.clone(),
+                    new_name,
+                }
+            }
+            RenameCommand::Remove(pattern) => {
+                let new_name = path.to_string_lossy().replace(pattern, "");
+                RenameIntent {
+                    path: path.clone(),
+                    new_name: PathBuf::from(new_name),
+                }
             }
         })
-        .collect();
-    if dry {
-        println!("The following files would be renamed:");
-        print_intents(&intents);
-    } else if confirm || confirm_intents(&intents) {
-        for intent in intents {
-            maybe_rename(&intent.path, &intent.new_name, dry);
-        }
-    };
+        .collect()
 }
 
 fn maybe_rename(path: &Path, new_name: &Path, dry: bool) {
@@ -78,17 +84,20 @@ fn maybe_rename(path: &Path, new_name: &Path, dry: bool) {
     }
 }
 
-fn remove_string_many(files: Vec<PathBuf>, pattern: &String, dry: bool, confirm: bool) {
-    let intents: Vec<RenameIntent> = files
-        .iter()
-        .map(|path| {
-            let new_name = path.to_string_lossy().replace(pattern, "");
-            RenameIntent {
-                path: path.clone(),
-                new_name: PathBuf::from(new_name),
-            }
-        })
-        .collect();
+fn extract_command(args_matches: &ArgMatches) -> Option<RenameCommand> {
+    match args_matches.subcommand() {
+        Some(("set-ext", matches)) => Some(RenameCommand::SetExt(
+            matches.get_one::<String>("extension").unwrap().clone(),
+        )),
+        Some(("remove", matches)) => Some(RenameCommand::Remove(
+            matches.get_one::<String>("pattern").unwrap().clone(),
+        )),
+        _ => None,
+    }
+}
+
+fn process_command(command: RenameCommand, files: Vec<PathBuf>, dry: bool, confirm: bool) {
+    let intents = suggest_renames(files, command);
     if dry {
         print_intents(&intents);
     } else if confirm || confirm_intents(&intents) {
@@ -150,31 +159,23 @@ fn main() {
         );
     let matches = command.get_matches();
 
-    match matches.subcommand() {
-        Some(("set-ext", matches)) => {
-            ensure_extension_many(
-                matches
-                    .get_many::<PathBuf>("path")
-                    .unwrap()
-                    .cloned()
-                    .collect(),
-                matches.get_one("extension").unwrap(),
-                matches.get_flag("dry"),
-                matches.get_flag("yes"),
-            );
+    match extract_command(&matches) {
+        Some(command) => {
+            let files: Vec<PathBuf> = matches
+                .subcommand()
+                .unwrap()
+                .1
+                .get_many::<PathBuf>("path")
+                .unwrap()
+                .cloned()
+                .collect();
+            let dry = matches.get_flag("dry");
+            let confirm = matches.get_flag("yes");
+            // let files = matches.get_many::<PathBuf>("path").unwrap().cloned().collect();
+            process_command(command, files, dry, confirm);
         }
-        Some(("remove", matches)) => {
-            remove_string_many(
-                matches
-                    .get_many::<PathBuf>("path")
-                    .unwrap()
-                    .cloned()
-                    .collect(),
-                matches.get_one("pattern").unwrap(),
-                matches.get_flag("dry"),
-                matches.get_flag("yes"),
-            );
+        None => {
+            eprintln!("No command provided.");
         }
-        _ => (),
     }
 }
