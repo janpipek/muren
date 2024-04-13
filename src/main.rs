@@ -4,6 +4,9 @@ use std::{env, path::Path, path::PathBuf};
 use clap::{arg, command, value_parser, Arg, ArgAction, ArgMatches, Command};
 use colored::Colorize;
 
+extern crate unidecode;
+use unidecode::unidecode;
+
 struct RenameIntent {
     path: PathBuf,
     new_name: PathBuf,
@@ -12,6 +15,7 @@ struct RenameIntent {
 enum RenameCommand {
     SetExt(String),
     Remove(String),
+    Normalize,
 }
 
 fn confirm_intents(intents: &Vec<RenameIntent>) -> bool {
@@ -55,11 +59,24 @@ fn suggest_renames(files: Vec<PathBuf>, command: RenameCommand) -> Vec<RenameInt
                     new_name: PathBuf::from(new_name),
                 }
             }
+            RenameCommand::Normalize => {
+                let path_str = path.to_string_lossy().to_string();
+                let new_name = unidecode(&path_str).replace(" ", "_").to_lowercase();
+                // let new_name = unidecode(path_str);
+
+                RenameIntent {
+                    path: path.clone(),
+                    new_name: PathBuf::from(new_name),
+                }
+            }
         })
         .collect()
 }
 
 fn maybe_rename(path: &Path, new_name: &Path, dry: bool) {
+    if path == new_name {
+        return;
+    }
     if dry {
         println!(
             "- {0} → {1}",
@@ -92,6 +109,7 @@ fn extract_command(args_matches: &ArgMatches) -> Option<RenameCommand> {
         Some(("remove", matches)) => Some(RenameCommand::Remove(
             matches.get_one::<String>("pattern").unwrap().clone(),
         )),
+        Some(("normalize", _)) => Some(RenameCommand::Normalize),
         _ => None,
     }
 }
@@ -135,6 +153,15 @@ fn main() {
                         .value_parser(value_parser!(String))
                         .required(true),
                 )
+                .arg(
+                    Arg::new("path")
+                        .action(ArgAction::Append)
+                        .value_parser(value_parser!(PathBuf)),
+                ),
+        )
+        .subcommand(
+            Command::new("normalize")
+                .about("Convert names to reasonable ASCII.")
                 .arg(
                     Arg::new("path")
                         .action(ArgAction::Append)
