@@ -33,6 +33,9 @@ fn extract_command(args_matches: &ArgMatches) -> Option<RenameCommand> {
             matches.get_one::<String>("pattern").unwrap().clone(),
         )),
         Some(("normalize", _)) => Some(RenameCommand::Normalize),
+        Some(("prefix", matches)) => Some(RenameCommand::Prefix(
+            matches.get_one::<String>("prefix").unwrap().clone(),
+        )),
         _ => None,
     }
 }
@@ -71,6 +74,22 @@ fn create_cli_command() -> Command {
                         .value_parser(value_parser!(PathBuf)),
                 ),
         )
+        .subcommand(
+            Command::new("prefix")
+                .about("Prefix with string")
+                .arg(
+                    Arg::new("prefix")
+                        .help("the prefix to prepend to the name")
+                        .action(ArgAction::Set)
+                        .value_parser(value_parser!(String))
+                        .required(true),
+                )
+                .arg(
+                    Arg::new("path")
+                        .action(ArgAction::Append)
+                        .value_parser(value_parser!(PathBuf)),
+                ),
+        )        
         .subcommand(
             Command::new("normalize")
                 .about("Convert names to reasonable ASCII.")

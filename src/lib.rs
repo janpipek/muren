@@ -13,6 +13,8 @@ pub struct RenameIntent {
 pub enum RenameCommand {
     SetExt(String),
     Remove(String),
+    // TODO: Change to struct
+    Prefix(String),
     Normalize,
 }
 
@@ -64,6 +66,14 @@ fn suggest_renames(files: &Vec<PathBuf>, command: &RenameCommand) -> Vec<RenameI
                     new_name: PathBuf::from(new_name),
                 }
             }
+            RenameCommand::Prefix(prefix) => {
+                let mut new_name = prefix.clone();
+                new_name.push_str(path.to_string_lossy().to_string().as_str());
+                RenameIntent {
+                    path: path.clone(),
+                    new_name: PathBuf::from(new_name),
+                }
+            }            
             RenameCommand::Normalize => {
                 let path_str = path.to_string_lossy().to_string();
                 let new_name = unidecode(&path_str).replace(" ", "_").to_lowercase();
