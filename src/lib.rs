@@ -12,6 +12,12 @@ pub struct RenameIntent {
     new_name: PathBuf,
 }
 
+impl RenameIntent {
+    fn is_changed(&self) -> bool {
+        self.path != self.new_name
+    }
+}
+
 pub enum RenameCommand {
     SetExtension(String),
     Remove(String),
@@ -25,7 +31,7 @@ pub struct Config {
     pub command: RenameCommand,
     pub dry: bool,
     pub files: Vec<PathBuf>,
-    pub confirm: bool,
+    pub auto_confirm: bool,
 }
 
 fn confirm_intents(intents: &Vec<RenameIntent>) -> bool {
@@ -39,14 +45,13 @@ fn confirm_intents(intents: &Vec<RenameIntent>) -> bool {
 
 fn print_intents(intents: &Vec<RenameIntent>) {
     for intent in intents {
-        if intent.path == intent.new_name {
-            continue;
+        if intent.is_changed() {
+            println!(
+                "- {0} → {1}",
+                intent.path.to_string_lossy().red(),
+                intent.new_name.to_string_lossy().green()
+            );
         }
-        println!(
-            "- {0} → {1}",
-            intent.path.to_string_lossy().red(),
-            intent.new_name.to_string_lossy().green()
-        );
     }
 }
 
@@ -94,7 +99,7 @@ fn suggest_renames(files: &Vec<PathBuf>, command: &RenameCommand) -> Vec<RenameI
                 } else {
                     let mut new_name = path.clone();
                     new_name.set_extension(&possible_extensions[0]);
-                    new_name                   
+                    new_name
                 };
                 RenameIntent {
                     path: path.clone(),
@@ -157,48 +162,55 @@ fn has_correct_extension(path: &Path, possible_extensions: &Vec<String>) -> bool
             let extension_str = String::from(extension.to_string_lossy());
             possible_extensions.contains(&extension_str)
         }
-    }    
+    }
 }
 
-fn maybe_rename(path: &Path, new_name: &Path, dry: bool) {
-    if path == new_name {
-        return;
-    }
-    if dry {
-        println!(
-            "- {0} → {1}",
-            path.to_string_lossy().red(),
-            new_name.to_string_lossy().green()
-        )
-    } else {
-        match rename(path, new_name) {
-            Ok(_) => println!(
+fn try_rename(path: &Path, new_name: &Path) -> bool {
+    match rename(path, new_name) {
+        Ok(_) => {
+            println!(
                 "{0} {1} → {2}",
                 "✓".green(),
                 path.to_string_lossy().red(),
                 new_name.to_string_lossy().green()
-            ),
-            Err(_) => eprintln!(
+            );
+            true
+        }
+        Err(_) => {
+            eprintln!(
                 "{0} {1} → {2}",
                 "✗".red(),
                 path.to_string_lossy().red(),
                 new_name.to_string_lossy().green()
-            ),
+            );
+            false
         }
     }
 }
 
-fn process_command(command: &RenameCommand, files: &Vec<PathBuf>, dry: bool, confirm: bool) {
+fn process_command(command: &RenameCommand, files: &Vec<PathBuf>, dry: bool, auto_confirm: bool) {
     let intents = suggest_renames(files, command);
     if dry {
         print_intents(&intents);
-    } else if confirm || confirm_intents(&intents) {
-        for intent in intents {
-            maybe_rename(&intent.path, &intent.new_name, dry);
+    } else {
+        let confirmed = auto_confirm || {
+            let changed_count = intents.iter().filter(|i| i.is_changed()).count();
+            (changed_count == 0) || confirm_intents(&intents)
+        };
+
+        let mut renamed_count = 0;
+        if confirmed {
+            for intent in intents {
+                if intent.is_changed() {
+                    let renamed = try_rename(&intent.path, &intent.new_name);
+                    renamed_count += renamed as i32;
+                }
+            }
         }
+        println!("{renamed_count} files renamed.");
     };
 }
 
 pub fn run(config: &Config) {
-    process_command(&config.command, &config.files, config.dry, config.confirm);
+    process_command(&config.command, &config.files, config.dry, config.auto_confirm);
 }
