@@ -20,7 +20,7 @@ fn parse_config(matches: &ArgMatches) -> Config {
         command,
         dry,
         files,
-        confirm,
+        auto_confirm: confirm,
     }
 }
 

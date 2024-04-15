@@ -31,7 +31,7 @@ pub struct Config {
     pub command: RenameCommand,
     pub dry: bool,
     pub files: Vec<PathBuf>,
-    pub confirm: bool,
+    pub auto_confirm: bool,
 }
 
 fn confirm_intents(intents: &Vec<RenameIntent>) -> bool {
@@ -45,7 +45,7 @@ fn confirm_intents(intents: &Vec<RenameIntent>) -> bool {
 
 fn print_intents(intents: &Vec<RenameIntent>) {
     for intent in intents {
-        if !intent.is_changed() {
+        if intent.is_changed() {
             println!(
                 "- {0} → {1}",
                 intent.path.to_string_lossy().red(),
@@ -188,16 +188,14 @@ fn try_rename(path: &Path, new_name: &Path) -> bool {
     }
 }
 
-fn process_command(command: &RenameCommand, files: &Vec<PathBuf>, dry: bool, confirm: bool) {
+fn process_command(command: &RenameCommand, files: &Vec<PathBuf>, dry: bool, auto_confirm: bool) {
     let intents = suggest_renames(files, command);
     if dry {
         print_intents(&intents);
     } else {
-        let confirmed = if confirm {
+        let confirmed = auto_confirm || {
             let changed_count = intents.iter().filter(|i| i.is_changed()).count();
             (changed_count == 0) || confirm_intents(&intents)
-        } else {
-            true
         };
 
         let mut renamed_count = 0;
@@ -214,5 +212,5 @@ fn process_command(command: &RenameCommand, files: &Vec<PathBuf>, dry: bool, con
 }
 
 pub fn run(config: &Config) {
-    process_command(&config.command, &config.files, config.dry, config.confirm);
+    process_command(&config.command, &config.files, config.dry, config.auto_confirm);
 }
