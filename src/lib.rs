@@ -1,6 +1,8 @@
 use colored::Colorize;
 use std::fs::rename;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+use std::process::{self, exit};
 
 extern crate unidecode;
 use unidecode::unidecode;
@@ -11,10 +13,11 @@ pub struct RenameIntent {
 }
 
 pub enum RenameCommand {
-    SetExt(String),
+    SetExtension(String),
     Remove(String),
     // TODO: Change to struct
     Prefix(String),
+    FixExtension,
     Normalize,
 }
 
@@ -51,7 +54,7 @@ fn suggest_renames(files: &Vec<PathBuf>, command: &RenameCommand) -> Vec<RenameI
     files
         .iter()
         .map(|path| match &command {
-            RenameCommand::SetExt(extension) => {
+            RenameCommand::SetExtension(extension) => {
                 let mut new_name = path.clone();
                 new_name.set_extension(extension);
                 RenameIntent {
@@ -73,7 +76,7 @@ fn suggest_renames(files: &Vec<PathBuf>, command: &RenameCommand) -> Vec<RenameI
                     path: path.clone(),
                     new_name: PathBuf::from(new_name),
                 }
-            }            
+            }
             RenameCommand::Normalize => {
                 let path_str = path.to_string_lossy().to_string();
                 let new_name = unidecode(&path_str).replace(" ", "_").to_lowercase();
@@ -84,8 +87,77 @@ fn suggest_renames(files: &Vec<PathBuf>, command: &RenameCommand) -> Vec<RenameI
                     new_name: PathBuf::from(new_name),
                 }
             }
+            RenameCommand::FixExtension => {
+                let possible_extensions = find_extensions_from_content(path);
+                let new_name = if has_correct_extension(path, &possible_extensions) {
+                    path.clone()
+                } else {
+                    let mut new_name = path.clone();
+                    new_name.set_extension(&possible_extensions[0]);
+                    new_name                   
+                };
+                RenameIntent {
+                    path: path.clone(),
+                    new_name,
+                }
+            }
         })
         .collect()
+}
+
+fn infer_mimetype(path: &Path) -> Option<String> {
+    let mut cmd = process::Command::new("file");
+    let output = cmd.arg(path).arg("--brief").arg("--mime-type").output();
+    match output {
+        Ok(output) => {
+            let output_str = String::from_utf8(output.stdout).unwrap();
+            let mime_type = match output_str.strip_suffix("\n") {
+                Some(s) => String::from(s),
+                None => output_str,
+            };
+            Some(mime_type)
+        }
+        Err(e) => match e.kind() {
+            ErrorKind::NotFound => {
+                eprintln!("Error: `file` probably not installed");
+                exit(-1);
+            }
+            _ => panic!("{e}"),
+        },
+    }
+}
+
+fn find_extensions_from_content(path: &Path) -> Vec<String> {
+    match infer_mimetype(path) {
+        None => vec![],
+        Some(mime_type) => {
+            let mime_type_str = mime_type.as_str();
+            dbg!(&mime_type);
+            match mime_type_str {
+                "application/pdf" => vec![String::from("pdf")],
+                "image/jpeg" => vec![String::from("jpeg"), String::from("jpg")],
+                "image/png" => vec![String::from("png")],
+                "text/csv" => vec![String::from("csv")],
+                "text/html" => vec![String::from("html"), String::from("htm")],
+                _other => vec![],
+            }
+        }
+    }
+}
+
+fn has_correct_extension(path: &Path, possible_extensions: &Vec<String>) -> bool {
+    if possible_extensions.is_empty() {
+        true
+    } else {
+        let current_extension = path.extension();
+        if current_extension.is_none() {
+            false
+        } else {
+            let extension = current_extension.unwrap().to_ascii_lowercase();
+            let extension_str = String::from(extension.to_string_lossy());
+            possible_extensions.contains(&extension_str)
+        }
+    }    
 }
 
 fn maybe_rename(path: &Path, new_name: &Path, dry: bool) {
