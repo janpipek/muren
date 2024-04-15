@@ -26,13 +26,14 @@ fn parse_config(matches: &ArgMatches) -> Config {
 
 fn extract_command(args_matches: &ArgMatches) -> Option<RenameCommand> {
     match args_matches.subcommand() {
-        Some(("set-ext", matches)) => Some(RenameCommand::SetExt(
+        Some(("set-ext", matches)) => Some(RenameCommand::SetExtension(
             matches.get_one::<String>("extension").unwrap().clone(),
         )),
         Some(("remove", matches)) => Some(RenameCommand::Remove(
             matches.get_one::<String>("pattern").unwrap().clone(),
         )),
         Some(("normalize", _)) => Some(RenameCommand::Normalize),
+        Some(("fix-ext", _)) => Some(RenameCommand::FixExtension),
         Some(("prefix", matches)) => Some(RenameCommand::Prefix(
             matches.get_one::<String>("prefix").unwrap().clone(),
         )),
@@ -93,6 +94,15 @@ fn create_cli_command() -> Command {
         .subcommand(
             Command::new("normalize")
                 .about("Convert names to reasonable ASCII.")
+                .arg(
+                    Arg::new("path")
+                        .action(ArgAction::Append)
+                        .value_parser(value_parser!(PathBuf)),
+                ),
+        )
+        .subcommand(
+            Command::new("fix-ext")
+                .about("Fix extension according to the file contents.")
                 .arg(
                     Arg::new("path")
                         .action(ArgAction::Append)
