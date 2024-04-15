@@ -6,14 +6,15 @@ use muren::{run, Config, RenameCommand};
 
 fn parse_config(matches: &ArgMatches) -> Config {
     let command = extract_command(matches).unwrap();
-    let files: Vec<PathBuf> = matches
+    let files_args = matches
         .subcommand()
         .unwrap()
         .1
-        .get_many::<PathBuf>("path")
-        .unwrap()
-        .cloned()
-        .collect();
+        .get_many::<PathBuf>("path");
+    let files: Vec<PathBuf> = match files_args {
+        Some(args) => args.cloned().collect(),
+        None => vec![]
+    };
     let dry = matches.get_flag("dry");
     let confirm = matches.get_flag("yes");
     Config {
