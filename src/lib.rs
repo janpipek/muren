@@ -14,7 +14,7 @@ pub struct RenameIntent {
 
 impl RenameIntent {
     fn is_changed(&self) -> bool {
-        self.path == self.new_name
+        self.path != self.new_name
     }
 }
 
