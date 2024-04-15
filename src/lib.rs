@@ -89,29 +89,12 @@ fn suggest_renames(files: &Vec<PathBuf>, command: &RenameCommand) -> Vec<RenameI
             }
             RenameCommand::FixExtension => {
                 let possible_extensions = find_extensions_from_content(path);
-                let new_name = {
-                    if possible_extensions.is_empty() {
-                        path.clone()
-                    } else {
-                        let current_extension = path.extension();
-                        if current_extension.is_none() {
-                            let mut new_name = path.clone();
-                            new_name.set_extension(&possible_extensions[0]);
-                            new_name
-                        } else {
-                            let extension = current_extension.unwrap().to_ascii_lowercase();
-                            let extension_str = String::from(extension.to_string_lossy());
-                            let is_correct_extension = possible_extensions.contains(&extension_str);
-                            dbg!(extension_str);
-                            if is_correct_extension {
-                                path.clone()
-                            } else {
-                                let mut new_name = path.clone();
-                                new_name.set_extension(&possible_extensions[0]);
-                                new_name
-                            }
-                        }
-                    }
+                let new_name = if has_correct_extension(path, &possible_extensions) {
+                    path.clone()
+                } else {
+                    let mut new_name = path.clone();
+                    new_name.set_extension(&possible_extensions[0]);
+                    new_name                   
                 };
                 RenameIntent {
                     path: path.clone(),
@@ -160,6 +143,21 @@ fn find_extensions_from_content(path: &Path) -> Vec<String> {
             }
         }
     }
+}
+
+fn has_correct_extension(path: &Path, possible_extensions: &Vec<String>) -> bool {
+    if possible_extensions.is_empty() {
+        true
+    } else {
+        let current_extension = path.extension();
+        if current_extension.is_none() {
+            false
+        } else {
+            let extension = current_extension.unwrap().to_ascii_lowercase();
+            let extension_str = String::from(extension.to_string_lossy());
+            possible_extensions.contains(&extension_str)
+        }
+    }    
 }
 
 fn maybe_rename(path: &Path, new_name: &Path, dry: bool) {
