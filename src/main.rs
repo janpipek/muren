@@ -3,6 +3,7 @@ use std::{env, path::Path, path::PathBuf};
 
 use clap::{arg, command, value_parser, Arg, ArgAction, Command};
 use colored::Colorize;
+use file_format::FileFormat;
 
 fn ensure_extension_many(files: Vec<PathBuf>, extension: &String, dry: bool) {
     for entry in files {
@@ -10,8 +11,8 @@ fn ensure_extension_many(files: Vec<PathBuf>, extension: &String, dry: bool) {
     }
 }
 
-fn ensure_extension_one(path: &PathBuf, extension: &String, dry: bool) {
-    let mut new_name = path.clone();
+fn ensure_extension_one(path: &Path, extension: &String, dry: bool) {
+    let mut new_name = PathBuf::from(path);
     new_name.set_extension(extension);
     maybe_rename(path, new_name.as_path(), dry);
 }
@@ -56,6 +57,19 @@ fn remove_string_one(path: &Path, pattern: &String, dry: bool) {
     }
 }
 
+fn fix_extension_many(files: Vec<PathBuf>, dry: bool) {
+    for entry in files {
+        fix_extension_one(&entry, dry);
+    }
+}
+
+fn fix_extension_one(path: &Path, dry: bool) {
+    match FileFormat::from_file(path) {
+        Ok(fmt) => ensure_extension_one(path, &String::from(fmt.extension()), dry),
+        Err(_) => (),
+    }
+}
+
 fn main() {
     let command = command!()
         .about("(mu)ltiple (ren)ames")
@@ -68,7 +82,7 @@ fn main() {
             .action(clap::ArgAction::SetTrue),
         )
         .subcommand(
-            Command::new("setext")
+            Command::new("set-ext")
                 .about("Change extension")
                 .arg(
                     Arg::new("extension")
@@ -98,11 +112,18 @@ fn main() {
                         .action(ArgAction::Append)
                         .value_parser(value_parser!(PathBuf)),
                 ),
+        )
+        .subcommand(
+            Command::new("fix-ext").about("Fix extension").arg(
+                Arg::new("path")
+                    .action(ArgAction::Append)
+                    .value_parser(value_parser!(PathBuf)),
+            ),
         );
     let matches = command.get_matches();
 
     match matches.subcommand() {
-        Some(("setext", matches)) => {
+        Some(("set-ext", matches)) => {
             ensure_extension_many(
                 matches
                     .get_many::<PathBuf>("path")
@@ -112,7 +133,7 @@ fn main() {
                 matches.get_one("extension").unwrap(),
                 matches.get_flag("dry"),
             );
-        },
+        }
         Some(("remove", matches)) => {
             remove_string_many(
                 matches
@@ -121,6 +142,16 @@ fn main() {
                     .cloned()
                     .collect(),
                 matches.get_one("pattern").unwrap(),
+                matches.get_flag("dry"),
+            );
+        }
+        Some(("fix-ext", matches)) => {
+            fix_extension_many(
+                matches
+                    .get_many::<PathBuf>("path")
+                    .unwrap()
+                    .cloned()
+                    .collect(),
                 matches.get_flag("dry"),
             );
         }
