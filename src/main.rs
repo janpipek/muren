@@ -1,4 +1,7 @@
-use std::{env, path::PathBuf};
+use std::{
+    env,
+    path::PathBuf,
+};
 
 use clap::{arg, command, value_parser, Arg, ArgAction, ArgMatches, Command};
 
@@ -6,14 +9,10 @@ use muren::{run, Config, RenameCommand};
 
 fn parse_config(matches: &ArgMatches) -> Config {
     let command = extract_command(matches).unwrap();
-    let files_args = matches
-        .subcommand()
-        .unwrap()
-        .1
-        .get_many::<PathBuf>("path");
+    let files_args = matches.subcommand().unwrap().1.get_many::<PathBuf>("path");
     let files: Vec<PathBuf> = match files_args {
         Some(args) => args.cloned().collect(),
-        None => vec![]
+        None => vec![],
     };
     let dry = matches.get_flag("dry");
     let confirm = matches.get_flag("yes");
@@ -38,11 +37,20 @@ fn extract_command(args_matches: &ArgMatches) -> Option<RenameCommand> {
         Some(("prefix", matches)) => Some(RenameCommand::Prefix(
             matches.get_one::<String>("prefix").unwrap().clone(),
         )),
+        Some(("replace", matches)) => Some(RenameCommand::Replace(
+            matches.get_one::<String>("pattern").unwrap().clone(),
+            matches.get_one::<String>("replacement").unwrap().clone(),
+            matches.get_flag("regex")
+        )),
         _ => None,
     }
 }
 
 fn create_cli_command() -> Command {
+    let path_arg = Arg::new("path")
+        .action(ArgAction::Append)
+        .value_parser(value_parser!(PathBuf));
+
     command!()
         .about("(mu)ltiple (ren)ames")
         .arg_required_else_help(true)
@@ -70,11 +78,7 @@ fn create_cli_command() -> Command {
                         .value_parser(value_parser!(String))
                         .required(true),
                 )
-                .arg(
-                    Arg::new("path")
-                        .action(ArgAction::Append)
-                        .value_parser(value_parser!(PathBuf)),
-                ),
+                .arg(path_arg.clone()),
         )
         .subcommand(
             Command::new("prefix")
@@ -86,29 +90,42 @@ fn create_cli_command() -> Command {
                         .value_parser(value_parser!(String))
                         .required(true),
                 )
+                .arg(path_arg.clone()),
+        )
+        .subcommand(
+            Command::new("replace")
+                .about("Replace parts of the name")
                 .arg(
-                    Arg::new("path")
-                        .action(ArgAction::Append)
-                        .value_parser(value_parser!(PathBuf)),
-                ),
-        )        
+                    Arg::new("pattern")
+                        .help("Pattern to match")
+                        .action(ArgAction::Set)
+                        .value_parser(value_parser!(String))
+                        .required(true),
+                )
+                .arg(
+                    Arg::new("replacement")
+                        .help("Pattern to match")
+                        .action(ArgAction::Set)
+                        .value_parser(value_parser!(String))
+                        .required(true),
+                )
+                .arg(
+                    arg!(
+                        -R --regex ... "The pattern is a regex"
+                    )
+                    .action(clap::ArgAction::SetTrue),
+                )
+                .arg(path_arg.clone()),
+        )
         .subcommand(
             Command::new("normalize")
                 .about("Convert names to reasonable ASCII.")
-                .arg(
-                    Arg::new("path")
-                        .action(ArgAction::Append)
-                        .value_parser(value_parser!(PathBuf)),
-                ),
+                .arg(path_arg.clone()),
         )
         .subcommand(
             Command::new("fix-ext")
                 .about("Fix extension according to the file contents.")
-                .arg(
-                    Arg::new("path")
-                        .action(ArgAction::Append)
-                        .value_parser(value_parser!(PathBuf)),
-                ),
+                .arg(path_arg.clone()),
         )
         .subcommand(
             Command::new("remove")
@@ -120,11 +137,7 @@ fn create_cli_command() -> Command {
                         .value_parser(value_parser!(String))
                         .required(true),
                 )
-                .arg(
-                    Arg::new("path")
-                        .action(ArgAction::Append)
-                        .value_parser(value_parser!(PathBuf)),
-                ),
+                .arg(path_arg.clone()),
         )
 }
 

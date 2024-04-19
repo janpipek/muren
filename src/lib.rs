@@ -1,4 +1,5 @@
 use colored::Colorize;
+use regex::Regex;
 use std::fs::rename;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -21,10 +22,10 @@ impl RenameIntent {
 pub enum RenameCommand {
     SetExtension(String),
     Remove(String),
-    // TODO: Change to struct
     Prefix(String),
     FixExtension,
     Normalize,
+    Replace(String, String, bool),
 }
 
 pub struct Config {
@@ -106,6 +107,19 @@ fn suggest_renames(files: &Vec<PathBuf>, command: &RenameCommand) -> Vec<RenameI
                     new_name,
                 }
             }
+            RenameCommand::Replace(pattern, replacement, is_regex) => {
+                let path_str = path.to_string_lossy().to_string();
+                let new_name = if *is_regex {
+                    let re = Regex::new(pattern).unwrap();
+                    re.replace(&path_str, replacement).to_string()
+                } else {
+                    path_str.replace(pattern, &replacement)
+                };
+                RenameIntent {
+                    path: path.clone(),
+                    new_name: PathBuf::from(new_name)
+                }   
+            }    
         })
         .collect()
 }
@@ -206,8 +220,8 @@ fn process_command(command: &RenameCommand, files: &Vec<PathBuf>, dry: bool, aut
                     renamed_count += renamed as i32;
                 }
             }
+            println!("{renamed_count} files renamed.");
         }
-        println!("{renamed_count} files renamed.");
     };
 }
 
