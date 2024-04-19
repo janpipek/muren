@@ -110,7 +110,7 @@ fn suggest_renames(files: &[PathBuf], command: &RenameCommand) -> Vec<RenameInte
                 let path_str = path.to_string_lossy().to_string();
                 let new_name = if *is_regex {
                     let re = Regex::new(pattern).unwrap();
-                    re.replace(&path_str, replacement).to_string()
+                    re.replace_all(&path_str, replacement).to_string()
                 } else {
                     path_str.replace(pattern, replacement)
                 };
