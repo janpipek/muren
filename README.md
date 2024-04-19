@@ -6,6 +6,7 @@ Usage: muren [OPTIONS] [COMMAND]
 Commands:
   set-ext    Change extension
   prefix     Prefix with string
+  replace    Replace parts of the name
   normalize  Convert names to reasonable ASCII.
   fix-ext    Fix extension according to the file contents.
   remove     Remove part of a name from all files.

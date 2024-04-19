@@ -1,4 +1,5 @@
 use colored::Colorize;
+use regex::Regex;
 use std::fs::rename;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -21,10 +22,10 @@ impl RenameIntent {
 pub enum RenameCommand {
     SetExtension(String),
     Remove(String),
-    // TODO: Change to struct
     Prefix(String),
     FixExtension,
     Normalize,
+    Replace(String, String, bool),
 }
 
 pub struct Config {
@@ -55,7 +56,7 @@ fn print_intents(intents: &Vec<RenameIntent>) {
     }
 }
 
-fn suggest_renames(files: &Vec<PathBuf>, command: &RenameCommand) -> Vec<RenameIntent> {
+fn suggest_renames(files: &[PathBuf], command: &RenameCommand) -> Vec<RenameIntent> {
     files
         .iter()
         .map(|path| match &command {
@@ -84,8 +85,7 @@ fn suggest_renames(files: &Vec<PathBuf>, command: &RenameCommand) -> Vec<RenameI
             }
             RenameCommand::Normalize => {
                 let path_str = path.to_string_lossy().to_string();
-                let new_name = unidecode(&path_str).replace(" ", "_").to_lowercase();
-                // let new_name = unidecode(path_str);
+                let new_name = unidecode(&path_str).replace(' ', "_"); //#.to_lowercase();
 
                 RenameIntent {
                     path: path.clone(),
@@ -106,6 +106,19 @@ fn suggest_renames(files: &Vec<PathBuf>, command: &RenameCommand) -> Vec<RenameI
                     new_name,
                 }
             }
+            RenameCommand::Replace(pattern, replacement, is_regex) => {
+                let path_str = path.to_string_lossy().to_string();
+                let new_name = if *is_regex {
+                    let re = Regex::new(pattern).unwrap();
+                    re.replace_all(&path_str, replacement).to_string()
+                } else {
+                    path_str.replace(pattern, replacement)
+                };
+                RenameIntent {
+                    path: path.clone(),
+                    new_name: PathBuf::from(new_name),
+                }
+            }
         })
         .collect()
 }
@@ -116,7 +129,7 @@ fn infer_mimetype(path: &Path) -> Option<String> {
     match output {
         Ok(output) => {
             let output_str = String::from_utf8(output.stdout).unwrap();
-            let mime_type = match output_str.strip_suffix("\n") {
+            let mime_type = match output_str.strip_suffix('\n') {
                 Some(s) => String::from(s),
                 None => output_str,
             };
@@ -150,7 +163,7 @@ fn find_extensions_from_content(path: &Path) -> Vec<String> {
     }
 }
 
-fn has_correct_extension(path: &Path, possible_extensions: &Vec<String>) -> bool {
+fn has_correct_extension(path: &Path, possible_extensions: &[String]) -> bool {
     if possible_extensions.is_empty() {
         true
     } else {
@@ -188,7 +201,7 @@ fn try_rename(path: &Path, new_name: &Path) -> bool {
     }
 }
 
-fn process_command(command: &RenameCommand, files: &Vec<PathBuf>, dry: bool, auto_confirm: bool) {
+fn process_command(command: &RenameCommand, files: &[PathBuf], dry: bool, auto_confirm: bool) {
     let intents = suggest_renames(files, command);
     if dry {
         print_intents(&intents);
@@ -206,11 +219,16 @@ fn process_command(command: &RenameCommand, files: &Vec<PathBuf>, dry: bool, aut
                     renamed_count += renamed as i32;
                 }
             }
+            println!("{renamed_count} files renamed.");
         }
-        println!("{renamed_count} files renamed.");
     };
 }
 
 pub fn run(config: &Config) {
-    process_command(&config.command, &config.files, config.dry, config.auto_confirm);
+    process_command(
+        &config.command,
+        &config.files,
+        config.dry,
+        config.auto_confirm,
+    );
 }
