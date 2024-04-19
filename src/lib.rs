@@ -56,7 +56,7 @@ fn print_intents(intents: &Vec<RenameIntent>) {
     }
 }
 
-fn suggest_renames(files: &Vec<PathBuf>, command: &RenameCommand) -> Vec<RenameIntent> {
+fn suggest_renames(files: &[PathBuf], command: &RenameCommand) -> Vec<RenameIntent> {
     files
         .iter()
         .map(|path| match &command {
@@ -85,8 +85,7 @@ fn suggest_renames(files: &Vec<PathBuf>, command: &RenameCommand) -> Vec<RenameI
             }
             RenameCommand::Normalize => {
                 let path_str = path.to_string_lossy().to_string();
-                let new_name = unidecode(&path_str).replace(" ", "_").to_lowercase();
-                // let new_name = unidecode(path_str);
+                let new_name = unidecode(&path_str).replace(' ', "_"); //#.to_lowercase();
 
                 RenameIntent {
                     path: path.clone(),
@@ -113,7 +112,7 @@ fn suggest_renames(files: &Vec<PathBuf>, command: &RenameCommand) -> Vec<RenameI
                     let re = Regex::new(pattern).unwrap();
                     re.replace(&path_str, replacement).to_string()
                 } else {
-                    path_str.replace(pattern, &replacement)
+                    path_str.replace(pattern, replacement)
                 };
                 RenameIntent {
                     path: path.clone(),
@@ -130,7 +129,7 @@ fn infer_mimetype(path: &Path) -> Option<String> {
     match output {
         Ok(output) => {
             let output_str = String::from_utf8(output.stdout).unwrap();
-            let mime_type = match output_str.strip_suffix("\n") {
+            let mime_type = match output_str.strip_suffix('\n') {
                 Some(s) => String::from(s),
                 None => output_str,
             };
@@ -164,7 +163,7 @@ fn find_extensions_from_content(path: &Path) -> Vec<String> {
     }
 }
 
-fn has_correct_extension(path: &Path, possible_extensions: &Vec<String>) -> bool {
+fn has_correct_extension(path: &Path, possible_extensions: &[String]) -> bool {
     if possible_extensions.is_empty() {
         true
     } else {
@@ -202,7 +201,7 @@ fn try_rename(path: &Path, new_name: &Path) -> bool {
     }
 }
 
-fn process_command(command: &RenameCommand, files: &Vec<PathBuf>, dry: bool, auto_confirm: bool) {
+fn process_command(command: &RenameCommand, files: &[PathBuf], dry: bool, auto_confirm: bool) {
     let intents = suggest_renames(files, command);
     if dry {
         print_intents(&intents);
