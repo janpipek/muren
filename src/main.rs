@@ -1,7 +1,4 @@
-use std::{
-    env,
-    path::PathBuf,
-};
+use std::{env, path::PathBuf};
 
 use clap::{arg, command, value_parser, Arg, ArgAction, ArgMatches, Command};
 
@@ -40,7 +37,7 @@ fn extract_command(args_matches: &ArgMatches) -> Option<RenameCommand> {
         Some(("replace", matches)) => Some(RenameCommand::Replace(
             matches.get_one::<String>("pattern").unwrap().clone(),
             matches.get_one::<String>("replacement").unwrap().clone(),
-            matches.get_flag("regex")
+            matches.get_flag("regex"),
         )),
         _ => None,
     }

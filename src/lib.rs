@@ -116,9 +116,9 @@ fn suggest_renames(files: &[PathBuf], command: &RenameCommand) -> Vec<RenameInte
                 };
                 RenameIntent {
                     path: path.clone(),
-                    new_name: PathBuf::from(new_name)
-                }   
-            }    
+                    new_name: PathBuf::from(new_name),
+                }
+            }
         })
         .collect()
 }
@@ -225,5 +225,10 @@ fn process_command(command: &RenameCommand, files: &[PathBuf], dry: bool, auto_c
 }
 
 pub fn run(config: &Config) {
-    process_command(&config.command, &config.files, config.dry, config.auto_confirm);
+    process_command(
+        &config.command,
+        &config.files,
+        config.dry,
+        config.auto_confirm,
+    );
 }
