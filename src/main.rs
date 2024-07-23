@@ -11,13 +11,12 @@ fn parse_config(matches: &ArgMatches) -> Config {
         Some(args) => args.cloned().collect(),
         None => vec![],
     };
-    let dry = matches.get_flag("dry");
-    let confirm = matches.get_flag("yes");
     Config {
         command,
-        dry,
+        dry: matches.get_flag("dry"),
         files,
-        auto_confirm: confirm,
+        auto_confirm: matches.get_flag("yes"),
+        show_unchanged: matches.get_flag("unchanged"),
     }
 }
 
@@ -54,6 +53,13 @@ fn create_cli_command() -> Command {
         .arg(
             arg!(
                 -d --dry ... "Dry run"
+            )
+            .global(true)
+            .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            arg!(
+                -u --unchanged ... "Show unchanged files"
             )
             .global(true)
             .action(clap::ArgAction::SetTrue),
