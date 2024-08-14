@@ -38,6 +38,7 @@ fn extract_command(args_matches: &ArgMatches) -> Option<RenameCommand> {
             matches.get_one::<String>("replacement").unwrap().clone(),
             matches.get_flag("regex"),
         )),
+        Some(("change-case", _)) => Some(RenameCommand::ChangeCase),
         _ => None,
     }
 }
@@ -140,6 +141,11 @@ fn create_cli_command() -> Command {
                         .value_parser(value_parser!(String))
                         .required(true),
                 )
+                .arg(path_arg.clone()),
+        )
+        .subcommand(
+            Command::new("change-case")
+                .about("Change case of all files.")
                 .arg(path_arg.clone()),
         )
 }

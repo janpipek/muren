@@ -1,10 +1,10 @@
 use colored::Colorize;
 use regex::Regex;
+use std::fmt::{Display, Formatter, Result};
 use std::fs::rename;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::process::{self, exit};
-use std::fmt::{Display, Formatter, Result};
 
 extern crate unidecode;
 use unidecode::unidecode;
@@ -30,11 +30,7 @@ impl Display for RenameIntent {
                 self.new_name.to_string_lossy().green()
             )
         } else {
-            write!(
-                f,
-                "{0} =",
-                self.path.to_string_lossy(),
-            )
+            write!(f, "{0} =", self.path.to_string_lossy(),)
         }
     }
 }
@@ -46,6 +42,7 @@ pub enum RenameCommand {
     FixExtension,
     Normalize,
     Replace(String, String, bool),
+    ChangeCase,
 }
 
 pub struct Config {
@@ -131,6 +128,14 @@ fn suggest_renames(files: &[PathBuf], command: &RenameCommand) -> Vec<RenameInte
                 } else {
                     path_str.replace(pattern, replacement)
                 };
+                RenameIntent {
+                    path: path.clone(),
+                    new_name: PathBuf::from(new_name),
+                }
+            }
+            RenameCommand::ChangeCase => {
+                let path_str = path.to_string_lossy().to_string();
+                let new_name = path_str.to_lowercase();
                 RenameIntent {
                     path: path.clone(),
                     new_name: PathBuf::from(new_name),
@@ -240,7 +245,13 @@ fn try_rename(path: &Path, new_name: &Path) -> bool {
     }
 }
 
-fn process_command(command: &RenameCommand, files: &[PathBuf], dry: bool, auto_confirm: bool, show_unchanged: bool) {
+fn process_command(
+    command: &RenameCommand,
+    files: &[PathBuf],
+    dry: bool,
+    auto_confirm: bool,
+    show_unchanged: bool,
+) {
     let intents = suggest_renames(files, command);
     if dry {
         print_intents(&intents, show_unchanged);
@@ -272,6 +283,6 @@ pub fn run(config: &Config) {
         &config.files,
         config.dry,
         config.auto_confirm,
-        config.show_unchanged
+        config.show_unchanged,
     );
 }
