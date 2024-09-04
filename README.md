@@ -1,5 +1,7 @@
 # muren(mu)ltiple (ren)ames
 
+Command-line utility for filename manipulations.
+
 ```
 Usage: muren [OPTIONS] [COMMAND]
 
@@ -19,6 +21,16 @@ Options:
   -V, --version  Print version
 ```
 
-## Why not [rnr](https://github.com/ismaelgv/rnr)?
+## Installation
 
-Because this project scratches my particular itch and allows me to try/learn rust.
+Once you have [`cargo`](https://doc.rust-lang.org/cargo/getting-started/installation.html) on your system:
+
+```
+cargo install muren
+```
+
+## Alternatives
+
+- [rnr](https://github.com/ismaelgv/rnr)
+
+Why am I implementing this then? Because this project scratches my particular itch and allows me to try/learn rust.
