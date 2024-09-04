@@ -10,13 +10,14 @@ extern crate unidecode;
 use unidecode::unidecode;
 
 pub struct RenameIntent {
-    path: PathBuf,
+    old_name: PathBuf,
     new_name: PathBuf,
 }
 
 impl RenameIntent {
+    /// Is the new name different from the old one?
     fn is_changed(&self) -> bool {
-        self.path != self.new_name
+        self.old_name != self.new_name
     }
 }
 
@@ -26,11 +27,11 @@ impl Display for RenameIntent {
             write!(
                 f,
                 "{0} → {1}",
-                self.path.to_string_lossy().red(),
+                self.old_name.to_string_lossy().red(),
                 self.new_name.to_string_lossy().green()
             )
         } else {
-            write!(f, "{0} =", self.path.to_string_lossy(),)
+            write!(f, "{0} =", self.old_name.to_string_lossy(),)
         }
     }
 }
@@ -62,6 +63,7 @@ fn confirm_intents(intents: &Vec<RenameIntent>) -> bool {
     input.trim().to_lowercase() == "y"
 }
 
+/// Print all renames
 fn print_intents(intents: &Vec<RenameIntent>, show_unchanged: bool) {
     for intent in intents {
         if intent.is_changed() || show_unchanged {
@@ -70,71 +72,79 @@ fn print_intents(intents: &Vec<RenameIntent>, show_unchanged: bool) {
     }
 }
 
+/// Find a new name for a single file
+fn suggest_rename(path: &PathBuf, command: &RenameCommand) -> RenameIntent {
+    RenameIntent {
+        old_name: path.clone(),
+        new_name: match &command {
+            RenameCommand::SetExtension(extension) => {
+                let mut new_name = path.clone();
+                new_name.set_extension(extension);
+                new_name
+            }
+            RenameCommand::Remove(pattern) => {
+                let new_name = path.to_string_lossy().replace(pattern, "");
+                PathBuf::from(new_name)
+            }
+            RenameCommand::Prefix(prefix) => {
+                let mut new_name = prefix.clone();
+                new_name.push_str(path.to_string_lossy().to_string().as_str());
+                PathBuf::from(new_name)
+            }
+            RenameCommand::Normalize => {
+                let path_str = path.to_string_lossy().to_string();
+                let new_name = unidecode(&path_str).replace(' ', "_"); //#.to_lowercase();
+                PathBuf::from(new_name)
+            }
+            RenameCommand::FixExtension(append) => {
+                let possible_extensions = find_extensions_from_content(path);
+                let mut new_name = path.clone();
+                if !has_correct_extension(path, &possible_extensions) {
+                    let mut new_extension = possible_extensions[0].clone();
+                    if *append {
+                        let old_extension = new_name.extension();
+                        if old_extension.is_some() {
+                            new_extension.insert(0, '.');
+                            new_extension.insert_str(0, old_extension.unwrap().to_str().unwrap())
+                        }
+                    }
+                    new_name.set_extension(new_extension);
+                };
+                new_name
+            }
+            RenameCommand::Replace(pattern, replacement, is_regex) => {
+                let path_str = path.to_string_lossy().to_string();
+                let new_name = if *is_regex {
+                    let re = Regex::new(pattern).unwrap();
+                    re.replace_all(&path_str, replacement).to_string()
+                } else {
+                    path_str.replace(pattern, replacement)
+                };
+                PathBuf::from(new_name)
+            }
+            RenameCommand::ChangeCase(upper) => {
+                let path_str = path.to_string_lossy().to_string();
+                let new_name = match upper {
+                    true => path_str.to_uppercase(),
+                    false => path_str.to_lowercase(),
+                };
+                PathBuf::from(new_name)
+            }
+        }}
+}
+
 fn suggest_renames(files: &[PathBuf], command: &RenameCommand) -> Vec<RenameIntent> {
     files
         .iter()
-        .map(|path| RenameIntent{
-            path: path.clone(),
-            new_name: match &command {
-                RenameCommand::SetExtension(extension) => {
-                    let mut new_name = path.clone();
-                    new_name.set_extension(extension);
-                    new_name
-                }
-                RenameCommand::Remove(pattern) => {
-                    let new_name = path.to_string_lossy().replace(pattern, "");
-                    PathBuf::from(new_name)
-                }
-                RenameCommand::ChangeCase(upper) => {
-                    let path_str = path.to_string_lossy().to_string();
-                    let new_name = match upper {
-                        true => path_str.to_uppercase(),
-                        false => path_str.to_lowercase(),
-                    };
-                    PathBuf::from(new_name)
-                }
-                RenameCommand::Prefix(prefix) => {
-                    let mut new_name = prefix.clone();
-                    new_name.push_str(path.to_string_lossy().to_string().as_str());
-                    PathBuf::from(new_name)
-                }
-                RenameCommand::Normalize => {
-                    let path_str = path.to_string_lossy().to_string();
-                    let new_name = unidecode(&path_str).replace(' ', "_"); //#.to_lowercase();
-                    PathBuf::from(new_name)
-                }
-                RenameCommand::FixExtension(append) => {
-                    let possible_extensions = find_extensions_from_content(path);
-                    let mut new_name = path.clone();
-                    if !has_correct_extension(path, &possible_extensions) {
-                        let mut new_extension = possible_extensions[0].clone();
-                        if *append {
-                            let old_extension = new_name.extension();
-                            if old_extension.is_some() {
-                                new_extension.insert(0, '.');
-                                new_extension.insert_str(0, old_extension.unwrap().to_str().unwrap())
-                            }
-                        }
-                        new_name.set_extension(new_extension);
-                    };
-                    new_name
-                }
-                RenameCommand::Replace(pattern, replacement, is_regex) => {
-                    let path_str = path.to_string_lossy().to_string();
-                    let new_name = if *is_regex {
-                        let re = Regex::new(pattern).unwrap();
-                        re.replace_all(&path_str, replacement).to_string()
-                    } else {
-                        path_str.replace(pattern, replacement)
-                    };
-                    PathBuf::from(new_name)
-                }
-            }}
-            )
+        .map(|path| suggest_rename(
+            path,
+            command,
+        ))
         .collect()
 }
 
 fn infer_mimetype(path: &Path, mime_type: bool) -> Option<String> {
+    // TODO: Do something on windows :see_no_evil:
     let mut cmd = process::Command::new("file");
     let cmd_with_args = cmd.arg(path).arg("--brief");
     let cmd_with_args = if mime_type {
@@ -254,7 +264,7 @@ fn process_command(
         if confirmed {
             for intent in intents {
                 if intent.is_changed() {
-                    let renamed = try_rename(&intent.path, &intent.new_name);
+                    let renamed = try_rename(&intent.old_name, &intent.new_name);
                     renamed_count += renamed as i32;
                 }
                 if show_unchanged {
