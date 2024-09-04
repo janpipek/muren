@@ -29,7 +29,7 @@ fn extract_command(args_matches: &ArgMatches) -> Option<RenameCommand> {
             matches.get_one::<String>("pattern").unwrap().clone(),
         )),
         Some(("normalize", _)) => Some(RenameCommand::Normalize),
-        Some(("fix-ext", _)) => Some(RenameCommand::FixExtension),
+        Some(("fix-ext", matches)) => Some(RenameCommand::FixExtension(matches.get_flag("append"))),
         Some(("prefix", matches)) => Some(RenameCommand::Prefix(
             matches.get_one::<String>("prefix").unwrap().clone(),
         )),
@@ -129,7 +129,13 @@ fn create_cli_command() -> Command {
         .subcommand(
             Command::new("fix-ext")
                 .about("Fix extension according to the file contents.")
-                .arg(path_arg.clone()),
+                .arg(path_arg.clone())
+                .arg(
+                    arg!(
+                        -a --append ... "Append instead of replacing."
+                    )
+                    .action(clap::ArgAction::SetTrue),
+                ),
         )
         .subcommand(
             Command::new("remove")

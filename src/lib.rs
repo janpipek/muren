@@ -39,7 +39,7 @@ pub enum RenameCommand {
     SetExtension(String),
     Remove(String),
     Prefix(String),
-    FixExtension,
+    FixExtension(bool),
     Normalize,
     Replace(String, String, bool),
     ChangeCase,
@@ -106,13 +106,21 @@ fn suggest_renames(files: &[PathBuf], command: &RenameCommand) -> Vec<RenameInte
                     new_name: PathBuf::from(new_name),
                 }
             }
-            RenameCommand::FixExtension => {
+            RenameCommand::FixExtension(append) => {
                 let possible_extensions = find_extensions_from_content(path);
                 let new_name = if has_correct_extension(path, &possible_extensions) {
                     path.clone()
                 } else {
                     let mut new_name = path.clone();
-                    new_name.set_extension(&possible_extensions[0]);
+                    let mut new_extension = possible_extensions[0].clone();
+                    if *append {
+                        let old_extension = new_name.extension();
+                        if old_extension.is_some() {
+                            new_extension.insert(0, '.');
+                            new_extension.insert_str(0, old_extension.unwrap().to_str().unwrap())
+                        }
+                    }
+                    new_name.set_extension(new_extension);
                     new_name
                 };
                 RenameIntent {
