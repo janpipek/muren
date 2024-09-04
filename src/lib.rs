@@ -73,83 +73,61 @@ fn print_intents(intents: &Vec<RenameIntent>, show_unchanged: bool) {
 fn suggest_renames(files: &[PathBuf], command: &RenameCommand) -> Vec<RenameIntent> {
     files
         .iter()
-        .map(|path| match &command {
-            RenameCommand::SetExtension(extension) => {
-                let mut new_name = path.clone();
-                new_name.set_extension(extension);
-                RenameIntent {
-                    path: path.clone(),
-                    new_name,
-                }
-            }
-            RenameCommand::Remove(pattern) => {
-                let new_name = path.to_string_lossy().replace(pattern, "");
-                RenameIntent {
-                    path: path.clone(),
-                    new_name: PathBuf::from(new_name),
-                }
-            }
-            RenameCommand::Prefix(prefix) => {
-                let mut new_name = prefix.clone();
-                new_name.push_str(path.to_string_lossy().to_string().as_str());
-                RenameIntent {
-                    path: path.clone(),
-                    new_name: PathBuf::from(new_name),
-                }
-            }
-            RenameCommand::Normalize => {
-                let path_str = path.to_string_lossy().to_string();
-                let new_name = unidecode(&path_str).replace(' ', "_"); //#.to_lowercase();
-
-                RenameIntent {
-                    path: path.clone(),
-                    new_name: PathBuf::from(new_name),
-                }
-            }
-            RenameCommand::FixExtension(append) => {
-                let possible_extensions = find_extensions_from_content(path);
-                let new_name = if has_correct_extension(path, &possible_extensions) {
-                    path.clone()
-                } else {
+        .map(|path| RenameIntent{
+            path: path.clone(),
+            new_name: match &command {
+                RenameCommand::SetExtension(extension) => {
                     let mut new_name = path.clone();
-                    let mut new_extension = possible_extensions[0].clone();
-                    if *append {
-                        let old_extension = new_name.extension();
-                        if old_extension.is_some() {
-                            new_extension.insert(0, '.');
-                            new_extension.insert_str(0, old_extension.unwrap().to_str().unwrap())
-                        }
-                    }
-                    new_name.set_extension(new_extension);
+                    new_name.set_extension(extension);
                     new_name
-                };
-                RenameIntent {
-                    path: path.clone(),
-                    new_name,
                 }
-            }
-            RenameCommand::Replace(pattern, replacement, is_regex) => {
-                let path_str = path.to_string_lossy().to_string();
-                let new_name = if *is_regex {
-                    let re = Regex::new(pattern).unwrap();
-                    re.replace_all(&path_str, replacement).to_string()
-                } else {
-                    path_str.replace(pattern, replacement)
-                };
-                RenameIntent {
-                    path: path.clone(),
-                    new_name: PathBuf::from(new_name),
+                RenameCommand::Remove(pattern) => {
+                    let new_name = path.to_string_lossy().replace(pattern, "");
+                    PathBuf::from(new_name)
                 }
-            }
-            RenameCommand::ChangeCase => {
-                let path_str = path.to_string_lossy().to_string();
-                let new_name = path_str.to_lowercase();
-                RenameIntent {
-                    path: path.clone(),
-                    new_name: PathBuf::from(new_name),
+                RenameCommand::Prefix(prefix) => {
+                    let mut new_name = prefix.clone();
+                    new_name.push_str(path.to_string_lossy().to_string().as_str());
+                    PathBuf::from(new_name)
                 }
-            }
-        })
+                RenameCommand::Normalize => {
+                    let path_str = path.to_string_lossy().to_string();
+                    let new_name = unidecode(&path_str).replace(' ', "_"); //#.to_lowercase();
+                    PathBuf::from(new_name)
+                }
+                RenameCommand::FixExtension(append) => {
+                    let possible_extensions = find_extensions_from_content(path);
+                    let mut new_name = path.clone();
+                    if !has_correct_extension(path, &possible_extensions) {
+                        let mut new_extension = possible_extensions[0].clone();
+                        if *append {
+                            let old_extension = new_name.extension();
+                            if old_extension.is_some() {
+                                new_extension.insert(0, '.');
+                                new_extension.insert_str(0, old_extension.unwrap().to_str().unwrap())
+                            }
+                        }
+                        new_name.set_extension(new_extension);
+                    };
+                    new_name
+                }
+                RenameCommand::Replace(pattern, replacement, is_regex) => {
+                    let path_str = path.to_string_lossy().to_string();
+                    let new_name = if *is_regex {
+                        let re = Regex::new(pattern).unwrap();
+                        re.replace_all(&path_str, replacement).to_string()
+                    } else {
+                        path_str.replace(pattern, replacement)
+                    };
+                    PathBuf::from(new_name)
+                }
+                RenameCommand::ChangeCase => {
+                    let path_str = path.to_string_lossy().to_string();
+                    let new_name = path_str.to_lowercase();
+                    PathBuf::from(new_name)
+                }
+            }}
+            )
         .collect()
 }
 
