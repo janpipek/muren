@@ -11,13 +11,12 @@ fn parse_config(matches: &ArgMatches) -> Config {
         Some(args) => args.cloned().collect(),
         None => vec![],
     };
-    let dry = matches.get_flag("dry");
-    let confirm = matches.get_flag("yes");
     Config {
         command,
-        dry,
+        dry: matches.get_flag("dry"),
         files,
-        auto_confirm: confirm,
+        auto_confirm: matches.get_flag("yes"),
+        show_unchanged: matches.get_flag("unchanged"),
     }
 }
 
@@ -30,7 +29,7 @@ fn extract_command(args_matches: &ArgMatches) -> Option<RenameCommand> {
             matches.get_one::<String>("pattern").unwrap().clone(),
         )),
         Some(("normalize", _)) => Some(RenameCommand::Normalize),
-        Some(("fix-ext", _)) => Some(RenameCommand::FixExtension),
+        Some(("fix-ext", matches)) => Some(RenameCommand::FixExtension(matches.get_flag("append"))),
         Some(("prefix", matches)) => Some(RenameCommand::Prefix(
             matches.get_one::<String>("prefix").unwrap().clone(),
         )),
@@ -39,6 +38,7 @@ fn extract_command(args_matches: &ArgMatches) -> Option<RenameCommand> {
             matches.get_one::<String>("replacement").unwrap().clone(),
             matches.get_flag("regex"),
         )),
+        Some(("change-case", _)) => Some(RenameCommand::ChangeCase),
         _ => None,
     }
 }
@@ -54,6 +54,13 @@ fn create_cli_command() -> Command {
         .arg(
             arg!(
                 -d --dry ... "Dry run"
+            )
+            .global(true)
+            .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            arg!(
+                -u --unchanged ... "Show unchanged files"
             )
             .global(true)
             .action(clap::ArgAction::SetTrue),
@@ -122,7 +129,13 @@ fn create_cli_command() -> Command {
         .subcommand(
             Command::new("fix-ext")
                 .about("Fix extension according to the file contents.")
-                .arg(path_arg.clone()),
+                .arg(path_arg.clone())
+                .arg(
+                    arg!(
+                        -a --append ... "Append instead of replacing."
+                    )
+                    .action(clap::ArgAction::SetTrue),
+                ),
         )
         .subcommand(
             Command::new("remove")
@@ -134,6 +147,11 @@ fn create_cli_command() -> Command {
                         .value_parser(value_parser!(String))
                         .required(true),
                 )
+                .arg(path_arg.clone()),
+        )
+        .subcommand(
+            Command::new("change-case")
+                .about("Change case of all files.")
                 .arg(path_arg.clone()),
         )
 }
