@@ -38,7 +38,9 @@ fn extract_command(args_matches: &ArgMatches) -> Option<RenameCommand> {
             matches.get_one::<String>("replacement").unwrap().clone(),
             matches.get_flag("regex"),
         )),
-        Some(("change-case", _)) => Some(RenameCommand::ChangeCase),
+        Some(("change-case", matches)) => {
+            Some(RenameCommand::ChangeCase(matches.get_flag("upper")))
+        }
         _ => None,
     }
 }
@@ -142,7 +144,7 @@ fn create_cli_command() -> Command {
                 .about("Remove part of a name from all files.")
                 .arg(
                     Arg::new("pattern")
-                        .help("The string to remove")
+                        .help("The string to remove.")
                         .action(ArgAction::Set)
                         .value_parser(value_parser!(String))
                         .required(true),
@@ -152,7 +154,13 @@ fn create_cli_command() -> Command {
         .subcommand(
             Command::new("change-case")
                 .about("Change case of all files.")
-                .arg(path_arg.clone()),
+                .arg(path_arg.clone())
+                .arg(
+                    arg!(
+                        -u --upper ... "Upper case (default: false)."
+                    )
+                    .action(clap::ArgAction::SetTrue),
+                ),
         )
 }
 

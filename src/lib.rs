@@ -43,7 +43,7 @@ pub enum RenameCommand {
     FixExtension(bool),
     Normalize,
     Replace(String, String, bool),
-    ChangeCase,
+    ChangeCase(bool),
 }
 
 pub struct Config {
@@ -122,9 +122,12 @@ fn suggest_rename(path: &PathBuf, command: &RenameCommand) -> RenameIntent {
                 };
                 PathBuf::from(new_name)
             }
-            RenameCommand::ChangeCase => {
+            RenameCommand::ChangeCase(upper) => {
                 let path_str = path.to_string_lossy().to_string();
-                let new_name = path_str.to_lowercase();
+                let new_name = match upper {
+                    true => path_str.to_uppercase(),
+                    false => path_str.to_lowercase(),
+                };
                 PathBuf::from(new_name)
             }
         }}
