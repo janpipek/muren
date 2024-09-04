@@ -42,7 +42,7 @@ pub enum RenameCommand {
     FixExtension(bool),
     Normalize,
     Replace(String, String, bool),
-    ChangeCase,
+    ChangeCase(bool),
 }
 
 pub struct Config {
@@ -85,6 +85,14 @@ fn suggest_renames(files: &[PathBuf], command: &RenameCommand) -> Vec<RenameInte
                     let new_name = path.to_string_lossy().replace(pattern, "");
                     PathBuf::from(new_name)
                 }
+                RenameCommand::ChangeCase(upper) => {
+                    let path_str = path.to_string_lossy().to_string();
+                    let new_name = match upper {
+                        true => path_str.to_uppercase(),
+                        false => path_str.to_lowercase(),
+                    };
+                    PathBuf::from(new_name)
+                }
                 RenameCommand::Prefix(prefix) => {
                     let mut new_name = prefix.clone();
                     new_name.push_str(path.to_string_lossy().to_string().as_str());
@@ -119,11 +127,6 @@ fn suggest_renames(files: &[PathBuf], command: &RenameCommand) -> Vec<RenameInte
                     } else {
                         path_str.replace(pattern, replacement)
                     };
-                    PathBuf::from(new_name)
-                }
-                RenameCommand::ChangeCase => {
-                    let path_str = path.to_string_lossy().to_string();
-                    let new_name = path_str.to_lowercase();
                     PathBuf::from(new_name)
                 }
             }}
