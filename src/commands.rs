@@ -5,6 +5,7 @@ use regex::Regex;
 use unidecode::unidecode;
 use crate::extensions::{find_extensions_from_content, has_correct_extension};
 
+#[derive(Clone)]
 pub struct RenameIntent {
     pub old_name: PathBuf,
     pub new_name: PathBuf,
@@ -142,5 +143,21 @@ impl RenameCommand for Prefix {
         let mut new_name = self.prefix.clone();
         new_name.push_str(old_name.to_string_lossy().to_string().as_str());
         PathBuf::from(new_name)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_set_prefix() {
+        let p = Prefix { prefix: String::from("a") };
+        let old_path = PathBuf::from("b");
+        assert_eq!(
+            p.suggest_new_name(&old_path),
+            PathBuf::from("ab")
+        )
     }
 }
