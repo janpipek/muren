@@ -1,5 +1,5 @@
 use std::fmt::{Display, Formatter};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use colored::Colorize;
 use regex::Regex;
 use unidecode::unidecode;
@@ -34,7 +34,7 @@ impl Display for RenameIntent {
 
 
 pub trait RenameCommand {
-    fn suggest_new_name(&self, old_name: &PathBuf) -> PathBuf;
+    fn suggest_new_name(&self, old_name: &Path) -> PathBuf;
 
     fn suggest_renames(&self, files: &[PathBuf]) -> Vec<RenameIntent> {
         files
@@ -47,7 +47,7 @@ pub trait RenameCommand {
 pub struct Normalize;
 
 impl RenameCommand for Normalize {
-    fn suggest_new_name(&self, old_name: &PathBuf) -> PathBuf {
+    fn suggest_new_name(&self, old_name: &Path) -> PathBuf {
         let path_str = old_name.to_string_lossy().to_string();
         let new_name = unidecode(&path_str).replace(' ', "_"); //#.to_lowercase();
         PathBuf::from(new_name)
@@ -59,8 +59,8 @@ pub struct SetExtension {
 }
 
 impl RenameCommand for SetExtension {
-    fn suggest_new_name(&self, old_name: &PathBuf) -> PathBuf {
-        let mut new_name = old_name.clone();
+    fn suggest_new_name(&self, old_name: &Path) -> PathBuf {
+        let mut new_name = old_name.to_path_buf();
         new_name.set_extension(&self.extension);
         new_name
     }
@@ -71,7 +71,7 @@ pub struct Remove {
 }
 
 impl RenameCommand for Remove {
-    fn suggest_new_name(&self, old_name: &PathBuf) -> PathBuf {
+    fn suggest_new_name(&self, old_name: &Path) -> PathBuf {
         let new_name = old_name.to_string_lossy().replace(&self.pattern, "");
         PathBuf::from(new_name)
     }
@@ -84,7 +84,7 @@ pub struct Replace {
 }
 
 impl RenameCommand for Replace {
-    fn suggest_new_name(&self, old_name: &PathBuf) -> PathBuf {
+    fn suggest_new_name(&self, old_name: &Path) -> PathBuf {
         let path_str = old_name.to_string_lossy().to_string();
         let new_name = if self.is_regex {
             let re = Regex::new(&self.pattern).unwrap();
@@ -101,7 +101,7 @@ pub struct ChangeCase {
 }
 
 impl RenameCommand for ChangeCase {
-    fn suggest_new_name(&self, old_name: &PathBuf) -> PathBuf {
+    fn suggest_new_name(&self, old_name: &Path) -> PathBuf {
         let path_str = old_name.to_string_lossy().to_string();
         let new_name = match self.upper {
             true => path_str.to_uppercase(),
@@ -116,16 +116,15 @@ pub struct FixExtension {
 }
 
 impl RenameCommand for FixExtension {
-    fn suggest_new_name(&self, old_name: &PathBuf) -> PathBuf {
+    fn suggest_new_name(&self, old_name: &Path) -> PathBuf {
         let possible_extensions = find_extensions_from_content(old_name);
-        let mut new_name = old_name.clone();
+        let mut new_name = old_name.to_path_buf();
         if !has_correct_extension(old_name, &possible_extensions) {
             let mut new_extension = possible_extensions[0].clone();
             if self.append {
-                let old_extension = new_name.extension();
-                if old_extension.is_some() {
+                if let Some(old_extension) = new_name.extension() {
                     new_extension.insert(0, '.');
-                    new_extension.insert_str(0, old_extension.unwrap().to_str().unwrap())
+                    new_extension.insert_str(0, old_extension.to_str().unwrap())
                 }
             }
             new_name.set_extension(new_extension);
@@ -139,7 +138,7 @@ pub struct Prefix {
 }
 
 impl RenameCommand for Prefix {
-    fn suggest_new_name(&self, old_name: &PathBuf) -> PathBuf {
+    fn suggest_new_name(&self, old_name: &Path) -> PathBuf {
         let mut new_name = self.prefix.clone();
         new_name.push_str(old_name.to_string_lossy().to_string().as_str());
         PathBuf::from(new_name)
