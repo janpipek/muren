@@ -170,10 +170,12 @@ mod tests {
     }
 
     #[test]
-    fn test_set_prefix() {
-        let p = Prefix {  prefix: String::from("a")  };
-        let old_path = PathBuf::from("b");
-        assert_eq!(p.suggest_new_name(&old_path), PathBuf::from("ab"))
+    fn test_prefix() {
+        assert_renames_correctly(
+            &Prefix {  prefix: String::from("a")  },
+            &["b", "a"],
+            &["ab", "aa"]
+        );
     }
 
     mod test_replace {
@@ -181,23 +183,16 @@ mod tests {
 
         #[test]
         fn test_regex() {
-            // Regex really matching
-            let replace = Replace {
+            let command = Replace {
                 pattern: String::from("\\d"),
                 replacement: String::from("a"),
                 is_regex: true,
             };
-            let old_path = PathBuf::from("a222");
-            assert_eq!(replace.suggest_new_name(&old_path), PathBuf::from("aaaa"));
-
-            // Regex present as literal
-            let replace = Replace {
-                pattern: String::from("a$"),
-                replacement: String::from("a"),
-                is_regex: true,
-            };
-            let old_path = PathBuf::from("a$a");
-            assert_eq!(replace.suggest_new_name(&old_path), PathBuf::from("a$a"));
+            assert_renames_correctly(
+                &command,
+                &["222", "abc", "answer_is_42", "\\d2"],
+                &["aaa", "abc", "answer_is_aa", "\\da"]
+            );
         }
 
         #[test]
@@ -207,8 +202,11 @@ mod tests {
                 replacement: String::from("def"),
                 is_regex: false,
             };
-            let old_path = PathBuf::from("a.cabc");
-            assert_eq!(command.suggest_new_name(&old_path), PathBuf::from("defabc"));
+            assert_renames_correctly(
+                &command,
+                &["a.c", "abc", "ABC"],
+                &["def", "abc", "ABC"]
+            );
         }
     }
 
@@ -263,5 +261,14 @@ mod tests {
                 &["a.jpg", "b.jpg", "c.jpg", ".gitignore.jpg"],
             );
         }
+    }
+
+    #[test]
+    fn test_remove() {
+        assert_renames_correctly(
+            &Remove{ pattern: String::from("ab") },
+            &[".gitignore", "babe", "abABab"],
+            &[".gitignore", "be", "AB"]
+        )
     }
 }
