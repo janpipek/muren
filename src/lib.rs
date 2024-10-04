@@ -1,8 +1,8 @@
-pub mod extensions;
 pub mod commands;
+pub mod extensions;
 
-use std::collections::HashSet;
 use colored::Colorize;
+use std::collections::HashSet;
 use std::fs::rename;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
@@ -98,8 +98,11 @@ fn process_command(
     };
 }
 
-fn contains_duplicates(intents: &Vec<RenameIntent>) -> bool {
-    let new_names: Vec<PathBuf> = intents.iter().map(|intent| intent.new_name.clone()).collect();
+fn contains_duplicates(intents: &[RenameIntent]) -> bool {
+    let new_names: Vec<PathBuf> = intents
+        .iter()
+        .map(|intent| intent.new_name.clone())
+        .collect();
     let mut uniq = HashSet::new();
     !new_names.into_iter().all(move |x| uniq.insert(x))
 }
@@ -120,9 +123,18 @@ mod test {
 
     #[test]
     fn test_contains_duplicates() {
-        let a_to_b = RenameIntent{ old_name: PathBuf::from("a"), new_name: PathBuf::from("b")};
-        let b_to_d = RenameIntent{ old_name: PathBuf::from("b"), new_name: PathBuf::from("d")};
-        let c_to_d = RenameIntent{ old_name: PathBuf::from("c"), new_name: PathBuf::from("d")};
+        let a_to_b = RenameIntent {
+            old_name: PathBuf::from("a"),
+            new_name: PathBuf::from("b"),
+        };
+        let b_to_d = RenameIntent {
+            old_name: PathBuf::from("b"),
+            new_name: PathBuf::from("d"),
+        };
+        let c_to_d = RenameIntent {
+            old_name: PathBuf::from("c"),
+            new_name: PathBuf::from("d"),
+        };
 
         assert!(contains_duplicates(&vec![b_to_d, c_to_d.clone()]));
         assert!(!contains_duplicates(&vec![a_to_b, c_to_d]));

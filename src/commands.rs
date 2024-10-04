@@ -1,9 +1,9 @@
-use std::fmt::{Display, Formatter};
-use std::path::{Path, PathBuf};
+use crate::extensions::{find_extensions_from_content, has_correct_extension};
 use colored::Colorize;
 use regex::Regex;
+use std::fmt::{Display, Formatter};
+use std::path::{Path, PathBuf};
 use unidecode::unidecode;
-use crate::extensions::{find_extensions_from_content, has_correct_extension};
 
 #[derive(Clone)]
 pub struct RenameIntent {
@@ -33,14 +33,16 @@ impl Display for RenameIntent {
     }
 }
 
-
 pub trait RenameCommand {
     fn suggest_new_name(&self, old_name: &Path) -> PathBuf;
 
     fn suggest_renames(&self, files: &[PathBuf]) -> Vec<RenameIntent> {
         files
             .iter()
-            .map(|path| RenameIntent { old_name: path.clone(), new_name: self.suggest_new_name(path) })
+            .map(|path| RenameIntent {
+                old_name: path.clone(),
+                new_name: self.suggest_new_name(path),
+            })
             .collect()
     }
 }
@@ -151,13 +153,115 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
+    /// Compare whether old_names are converted to new expected_names using command.
+    fn assert_renames_correctly(
+        command: &dyn RenameCommand,
+        old_names: &[&str],
+        expected_names: &[&str],
+    ) {
+        let old: Vec<PathBuf> = old_names.iter().map(|&x| PathBuf::from(x)).collect();
+        let new_intents = command.suggest_renames(&old);
+        let new: Vec<PathBuf> = new_intents
+            .iter()
+            .map(|intent| intent.new_name.clone())
+            .collect();
+        let expected: Vec<PathBuf> = expected_names.iter().map(|&x| PathBuf::from(x)).collect();
+        assert_eq!(expected, new);
+    }
+
     #[test]
     fn test_set_prefix() {
-        let p = Prefix { prefix: String::from("a") };
+        let p = Prefix {  prefix: String::from("a")  };
         let old_path = PathBuf::from("b");
-        assert_eq!(
-            p.suggest_new_name(&old_path),
-            PathBuf::from("ab")
-        )
+        assert_eq!(p.suggest_new_name(&old_path), PathBuf::from("ab"))
+    }
+
+    mod test_replace {
+        use super::*;
+
+        #[test]
+        fn test_regex() {
+            // Regex really matching
+            let replace = Replace {
+                pattern: String::from("\\d"),
+                replacement: String::from("a"),
+                is_regex: true,
+            };
+            let old_path = PathBuf::from("a222");
+            assert_eq!(replace.suggest_new_name(&old_path), PathBuf::from("aaaa"));
+
+            // Regex present as literal
+            let replace = Replace {
+                pattern: String::from("a$"),
+                replacement: String::from("a"),
+                is_regex: true,
+            };
+            let old_path = PathBuf::from("a$a");
+            assert_eq!(replace.suggest_new_name(&old_path), PathBuf::from("a$a"));
+        }
+
+        #[test]
+        fn test_non_regex() {
+            let command = Replace {
+                pattern: String::from("a.c"),
+                replacement: String::from("def"),
+                is_regex: false,
+            };
+            let old_path = PathBuf::from("a.cabc");
+            assert_eq!(command.suggest_new_name(&old_path), PathBuf::from("defabc"));
+        }
+    }
+
+    mod test_change_case {
+        use super::*;
+
+        #[test]
+        fn test_upper() {
+            assert_renames_correctly(
+                &ChangeCase { upper: true },
+                &["Abc", "hnědý", "Αθήνα", "mountAIN🗻"],
+                &["ABC", "HNĚDÝ", "ΑΘΉΝΑ", "MOUNTAIN🗻"]
+            );
+        }
+
+        #[test]
+        fn test_lower() {
+            assert_renames_correctly(
+                &ChangeCase { upper: false },
+                &["Abc", "hnědý", "Αθήνα", "mountAIN🗻"],
+                &["abc", "hnědý", "αθήνα", "mountain🗻"]
+            );
+        }
+    }
+
+    #[test]
+    fn test_normalize() {
+        assert_renames_correctly(
+            &Normalize,
+            &["Abc", "hnědý", "Αθήνα & Σπάρτη", "mountain🗻"],
+            &["Abc", "hnedy", "Athena_&_Sparte", "mountain"]
+        );
+    }
+
+    mod test_set_extension {
+        use super::*;
+
+        #[test]
+        fn test_no_extension() {
+            assert_renames_correctly(
+                &SetExtension{ extension: String::from("") },
+                &["a", "b", "c.jpg", ".gitignore"],
+                &["a", "b", "c", ".gitignore"],
+            );
+        }
+
+        #[test]
+        fn test_some_extension() {
+            assert_renames_correctly(
+                &SetExtension{ extension: String::from("jpg") },
+                &["a", "b", "c.jpg", ".gitignore"],
+                &["a.jpg", "b.jpg", "c.jpg", ".gitignore.jpg"],
+            );
+        }
     }
 }
