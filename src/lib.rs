@@ -1,53 +1,17 @@
+pub mod commands;
+pub mod extensions;
+
 use colored::Colorize;
-use regex::Regex;
-use std::fmt::{Display, Formatter, Result};
+use std::collections::HashSet;
 use std::fs::rename;
-use std::io::ErrorKind;
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
-use std::process::{self, exit};
 
 extern crate unidecode;
-use unidecode::unidecode;
-
-pub struct RenameIntent {
-    old_name: PathBuf,
-    new_name: PathBuf,
-}
-
-impl RenameIntent {
-    /// Is the new name different from the old one?
-    fn is_changed(&self) -> bool {
-        self.old_name != self.new_name
-    }
-}
-
-impl Display for RenameIntent {
-    fn fmt(&self, f: &mut Formatter) -> Result {
-        if self.is_changed() {
-            write!(
-                f,
-                "{0} → {1}",
-                self.old_name.to_string_lossy().red(),
-                self.new_name.to_string_lossy().green()
-            )
-        } else {
-            write!(f, "{0} =", self.old_name.to_string_lossy(),)
-        }
-    }
-}
-
-pub enum RenameCommand {
-    SetExtension(String),
-    Remove(String),
-    Prefix(String),
-    FixExtension(bool),
-    Normalize,
-    Replace(String, String, bool),
-    ChangeCase(bool),
-}
+use crate::commands::{RenameCommand, RenameIntent};
 
 pub struct Config {
-    pub command: RenameCommand,
+    pub command: Box<dyn RenameCommand>,
     pub dry: bool,
     pub files: Vec<PathBuf>,
     pub auto_confirm: bool,
@@ -68,155 +32,6 @@ fn print_intents(intents: &Vec<RenameIntent>, show_unchanged: bool) {
     for intent in intents {
         if intent.is_changed() || show_unchanged {
             println!("{}", intent);
-        }
-    }
-}
-
-/// Find a new name for a single file
-fn suggest_rename(path: &PathBuf, command: &RenameCommand) -> RenameIntent {
-    RenameIntent {
-        old_name: path.clone(),
-        new_name: match &command {
-            RenameCommand::SetExtension(extension) => {
-                let mut new_name = path.clone();
-                new_name.set_extension(extension);
-                new_name
-            }
-            RenameCommand::Remove(pattern) => {
-                let new_name = path.to_string_lossy().replace(pattern, "");
-                PathBuf::from(new_name)
-            }
-            RenameCommand::Prefix(prefix) => {
-                let mut new_name = prefix.clone();
-                new_name.push_str(path.to_string_lossy().to_string().as_str());
-                PathBuf::from(new_name)
-            }
-            RenameCommand::Normalize => {
-                let path_str = path.to_string_lossy().to_string();
-                let new_name = unidecode(&path_str).replace(' ', "_"); //#.to_lowercase();
-                PathBuf::from(new_name)
-            }
-            RenameCommand::FixExtension(append) => {
-                let possible_extensions = find_extensions_from_content(path);
-                let mut new_name = path.clone();
-                if !has_correct_extension(path, &possible_extensions) {
-                    let mut new_extension = possible_extensions[0].clone();
-                    if *append {
-                        let old_extension = new_name.extension();
-                        if old_extension.is_some() {
-                            new_extension.insert(0, '.');
-                            new_extension.insert_str(0, old_extension.unwrap().to_str().unwrap())
-                        }
-                    }
-                    new_name.set_extension(new_extension);
-                };
-                new_name
-            }
-            RenameCommand::Replace(pattern, replacement, is_regex) => {
-                let path_str = path.to_string_lossy().to_string();
-                let new_name = if *is_regex {
-                    let re = Regex::new(pattern).unwrap();
-                    re.replace_all(&path_str, replacement).to_string()
-                } else {
-                    path_str.replace(pattern, replacement)
-                };
-                PathBuf::from(new_name)
-            }
-            RenameCommand::ChangeCase(upper) => {
-                let path_str = path.to_string_lossy().to_string();
-                let new_name = match upper {
-                    true => path_str.to_uppercase(),
-                    false => path_str.to_lowercase(),
-                };
-                PathBuf::from(new_name)
-            }
-        }}
-}
-
-fn suggest_renames(files: &[PathBuf], command: &RenameCommand) -> Vec<RenameIntent> {
-    files
-        .iter()
-        .map(|path| suggest_rename(
-            path,
-            command,
-        ))
-        .collect()
-}
-
-fn infer_mimetype(path: &Path, mime_type: bool) -> Option<String> {
-    // TODO: Do something on windows :see_no_evil:
-    let mut cmd = process::Command::new("file");
-    let cmd_with_args = cmd.arg(path).arg("--brief");
-    let cmd_with_args = if mime_type {
-        cmd_with_args.arg("--mime-type")
-    } else {
-        cmd_with_args
-    };
-
-    let output = cmd_with_args.output();
-    match output {
-        Ok(output) => {
-            let output_str = String::from_utf8(output.stdout).unwrap();
-            let mime_type = match output_str.strip_suffix('\n') {
-                Some(s) => String::from(s),
-                None => output_str,
-            };
-            Some(mime_type)
-        }
-        Err(e) => match e.kind() {
-            ErrorKind::NotFound => {
-                eprintln!("Error: `file` probably not installed");
-                exit(-1);
-            }
-            _ => panic!("{e}"),
-        },
-    }
-}
-
-fn find_extensions_from_content(path: &Path) -> Vec<String> {
-    let mime_type_based = match infer_mimetype(path, true) {
-        None => vec![],
-        Some(mime_type) => {
-            let mime_type_str = mime_type.as_str();
-            match mime_type_str {
-                "application/pdf" => vec![String::from("pdf")],
-                "image/jpeg" => vec![String::from("jpeg"), String::from("jpg")],
-                "image/png" => vec![String::from("png")],
-                "text/csv" => vec![String::from("csv")],
-                "text/html" => vec![String::from("html"), String::from("htm")],
-                "text/x-script.python" => vec![String::from("py"), String::from("pyw")],
-                _other => vec![],
-            }
-        }
-    };
-
-    let mut description_based = match infer_mimetype(path, false) {
-        None => vec![],
-        Some(description) => {
-            let description_str = description.as_str();
-            match description_str {
-                "Apache Parquet" => vec![String::from("parquet"), String::from("pq")],
-                _other => vec![],
-            }
-        }
-    };
-
-    let mut extensions = mime_type_based.clone();
-    extensions.append(&mut description_based);
-    extensions
-}
-
-fn has_correct_extension(path: &Path, possible_extensions: &[String]) -> bool {
-    if possible_extensions.is_empty() {
-        true
-    } else {
-        let current_extension = path.extension();
-        if current_extension.is_none() {
-            false
-        } else {
-            let extension = current_extension.unwrap().to_ascii_lowercase();
-            let extension_str = String::from(extension.to_string_lossy());
-            possible_extensions.contains(&extension_str)
         }
     }
 }
@@ -245,13 +60,20 @@ fn try_rename(path: &Path, new_name: &Path) -> bool {
 }
 
 fn process_command(
-    command: &RenameCommand,
+    command: &dyn RenameCommand,
     files: &[PathBuf],
     dry: bool,
     auto_confirm: bool,
     show_unchanged: bool,
 ) {
-    let intents = suggest_renames(files, command);
+    let intents = command.suggest_renames(files);
+
+    if contains_duplicates(&intents) {
+        print!("All target names are not unique!");
+        print_intents(&intents, false);
+        return;
+    }
+
     if dry {
         print_intents(&intents, show_unchanged);
     } else {
@@ -276,12 +98,46 @@ fn process_command(
     };
 }
 
+fn contains_duplicates(intents: &[RenameIntent]) -> bool {
+    let new_names: Vec<PathBuf> = intents
+        .iter()
+        .map(|intent| intent.new_name.clone())
+        .collect();
+    let mut uniq = HashSet::new();
+    !new_names.into_iter().all(move |x| uniq.insert(x))
+}
+
 pub fn run(config: &Config) {
     process_command(
-        &config.command,
+        config.command.deref(),
         &config.files,
         config.dry,
         config.auto_confirm,
         config.show_unchanged,
     );
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_contains_duplicates() {
+        let a_to_b = RenameIntent {
+            old_name: PathBuf::from("a"),
+            new_name: PathBuf::from("b"),
+        };
+        let b_to_d = RenameIntent {
+            old_name: PathBuf::from("b"),
+            new_name: PathBuf::from("d"),
+        };
+        let c_to_d = RenameIntent {
+            old_name: PathBuf::from("c"),
+            new_name: PathBuf::from("d"),
+        };
+
+        assert!(contains_duplicates(&vec![b_to_d, c_to_d.clone()]));
+        assert!(!contains_duplicates(&vec![a_to_b, c_to_d]));
+        assert!(!contains_duplicates(&Vec::new()));
+    }
 }

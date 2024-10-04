@@ -2,10 +2,13 @@ use std::{env, path::PathBuf};
 
 use clap::{arg, command, value_parser, Arg, ArgAction, ArgMatches, Command};
 
-use muren::{run, Config, RenameCommand};
+use muren::commands::{
+    ChangeCase, FixExtension, Normalize, Prefix, Remove, RenameCommand, Replace, SetExtension,
+};
+use muren::{run, Config};
 
 fn parse_config(matches: &ArgMatches) -> Config {
-    let command = extract_command(matches).unwrap();
+    let command = extract_command(matches);
     let files_args = matches.subcommand().unwrap().1.get_many::<PathBuf>("path");
     let files: Vec<PathBuf> = match files_args {
         Some(args) => args.cloned().collect(),
@@ -20,28 +23,33 @@ fn parse_config(matches: &ArgMatches) -> Config {
     }
 }
 
-fn extract_command(args_matches: &ArgMatches) -> Option<RenameCommand> {
+fn extract_command(args_matches: &ArgMatches) -> Box<dyn RenameCommand> {
     match args_matches.subcommand() {
-        Some(("set-ext", matches)) => Some(RenameCommand::SetExtension(
-            matches.get_one::<String>("extension").unwrap().clone(),
-        )),
-        Some(("remove", matches)) => Some(RenameCommand::Remove(
-            matches.get_one::<String>("pattern").unwrap().clone(),
-        )),
-        Some(("normalize", _)) => Some(RenameCommand::Normalize),
-        Some(("fix-ext", matches)) => Some(RenameCommand::FixExtension(matches.get_flag("append"))),
-        Some(("prefix", matches)) => Some(RenameCommand::Prefix(
-            matches.get_one::<String>("prefix").unwrap().clone(),
-        )),
-        Some(("replace", matches)) => Some(RenameCommand::Replace(
-            matches.get_one::<String>("pattern").unwrap().clone(),
-            matches.get_one::<String>("replacement").unwrap().clone(),
-            matches.get_flag("regex"),
-        )),
-        Some(("change-case", matches)) => {
-            Some(RenameCommand::ChangeCase(matches.get_flag("upper")))
-        }
-        _ => None,
+        None => panic!("No command provided"),
+        Some((m, matches)) => match m {
+            "set-ext" => Box::new(SetExtension {
+                extension: matches.get_one::<String>("extension").unwrap().clone(),
+            }),
+            "remove" => Box::new(Remove {
+                pattern: matches.get_one::<String>("pattern").unwrap().clone(),
+            }),
+            "normalize" => Box::new(Normalize),
+            "fix-ext" => Box::new(FixExtension {
+                append: matches.get_flag("append"),
+            }),
+            "prefix" => Box::new(Prefix {
+                prefix: matches.get_one::<String>("prefix").unwrap().clone(),
+            }),
+            "replace" => Box::new(Replace {
+                pattern: matches.get_one::<String>("pattern").unwrap().clone(),
+                replacement: matches.get_one::<String>("replacement").unwrap().clone(),
+                is_regex: matches.get_flag("regex"),
+            }),
+            "change-case" => Box::new(ChangeCase {
+                upper: matches.get_flag("upper"),
+            }),
+            _ => panic!("Unknown command"),
+        },
     }
 }
 
