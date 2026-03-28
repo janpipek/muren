@@ -31,7 +31,7 @@ fn confirm_intents(intents: &Vec<RenameIntent>) -> bool {
 fn print_intents(intents: &Vec<RenameIntent>, show_unchanged: bool) {
     for intent in intents {
         if intent.is_changed() || show_unchanged {
-            println!("{}", intent);
+            println!("{intent}");
         }
     }
 }
@@ -90,7 +90,7 @@ fn process_command(
                     renamed_count += renamed as i32;
                 }
                 if show_unchanged {
-                    println!("{}", intent)
+                    println!("{intent}")
                 }
             }
             println!("{renamed_count} files renamed.");
@@ -136,8 +136,8 @@ mod test {
             new_name: PathBuf::from("d"),
         };
 
-        assert!(contains_duplicates(&vec![b_to_d, c_to_d.clone()]));
-        assert!(!contains_duplicates(&vec![a_to_b, c_to_d]));
+        assert!(contains_duplicates(&[b_to_d, c_to_d.clone()]));
+        assert!(!contains_duplicates(&[a_to_b, c_to_d]));
         assert!(!contains_duplicates(&Vec::new()));
     }
 }

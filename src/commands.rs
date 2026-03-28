@@ -172,9 +172,11 @@ mod tests {
     #[test]
     fn test_prefix() {
         assert_renames_correctly(
-            &Prefix {  prefix: String::from("a")  },
+            &Prefix {
+                prefix: String::from("a"),
+            },
             &["b", "a"],
-            &["ab", "aa"]
+            &["ab", "aa"],
         );
     }
 
@@ -191,7 +193,7 @@ mod tests {
             assert_renames_correctly(
                 &command,
                 &["222", "abc", "answer_is_42", "\\d2"],
-                &["aaa", "abc", "answer_is_aa", "\\da"]
+                &["aaa", "abc", "answer_is_aa", "\\da"],
             );
         }
 
@@ -202,11 +204,7 @@ mod tests {
                 replacement: String::from("def"),
                 is_regex: false,
             };
-            assert_renames_correctly(
-                &command,
-                &["a.c", "abc", "ABC"],
-                &["def", "abc", "ABC"]
-            );
+            assert_renames_correctly(&command, &["a.c", "abc", "ABC"], &["def", "abc", "ABC"]);
         }
     }
 
@@ -218,7 +216,7 @@ mod tests {
             assert_renames_correctly(
                 &ChangeCase { upper: true },
                 &["Abc", "hnědý", "Αθήνα", "mountAIN🗻"],
-                &["ABC", "HNĚDÝ", "ΑΘΉΝΑ", "MOUNTAIN🗻"]
+                &["ABC", "HNĚDÝ", "ΑΘΉΝΑ", "MOUNTAIN🗻"],
             );
         }
 
@@ -227,7 +225,7 @@ mod tests {
             assert_renames_correctly(
                 &ChangeCase { upper: false },
                 &["Abc", "hnědý", "Αθήνα", "mountAIN🗻"],
-                &["abc", "hnědý", "αθήνα", "mountain🗻"]
+                &["abc", "hnědý", "αθήνα", "mountain🗻"],
             );
         }
     }
@@ -237,7 +235,7 @@ mod tests {
         assert_renames_correctly(
             &Normalize,
             &["Abc", "hnědý", "Αθήνα & Σπάρτη", "mountain🗻"],
-            &["Abc", "hnedy", "Athena_&_Sparte", "mountain"]
+            &["Abc", "hnedy", "Athena_&_Sparte", "mountain"],
         );
     }
 
@@ -247,7 +245,9 @@ mod tests {
         #[test]
         fn test_no_extension() {
             assert_renames_correctly(
-                &SetExtension{ extension: String::from("") },
+                &SetExtension {
+                    extension: String::from(""),
+                },
                 &["a", "b", "c.jpg", ".gitignore"],
                 &["a", "b", "c", ".gitignore"],
             );
@@ -256,7 +256,9 @@ mod tests {
         #[test]
         fn test_some_extension() {
             assert_renames_correctly(
-                &SetExtension{ extension: String::from("jpg") },
+                &SetExtension {
+                    extension: String::from("jpg"),
+                },
                 &["a", "b", "c.jpg", ".gitignore"],
                 &["a.jpg", "b.jpg", "c.jpg", ".gitignore.jpg"],
             );
@@ -266,9 +268,11 @@ mod tests {
     #[test]
     fn test_remove() {
         assert_renames_correctly(
-            &Remove{ pattern: String::from("ab") },
+            &Remove {
+                pattern: String::from("ab"),
+            },
             &[".gitignore", "babe", "abABab"],
-            &[".gitignore", "be", "AB"]
+            &[".gitignore", "be", "AB"],
         )
     }
 }
