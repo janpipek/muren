@@ -1,11 +1,12 @@
 use std::{env, path::PathBuf};
 
-use clap::{arg, command, value_parser, Arg, ArgAction, ArgMatches, Command};
+use clap::{Arg, ArgAction, ArgMatches, Command, arg, command, value_parser};
 
 use muren::commands::{
-    ChangeCase, FixExtension, Normalize, Prefix, Remove, RenameCommand, Replace, SetExtension, UuidCommand
+    ChangeCase, FixExtension, Normalize, Prefix, Remove, RenameCommand, Replace, SetExtension,
+    UuidCommand,
 };
-use muren::{run, Config};
+use muren::{Config, run};
 
 fn parse_config(matches: &ArgMatches) -> Config {
     let command = extract_command(matches);
@@ -49,7 +50,11 @@ fn extract_command(args_matches: &ArgMatches) -> Box<dyn RenameCommand> {
                 upper: matches.get_flag("upper"),
             }),
             "uuid" => Box::new(UuidCommand {
-                version: matches.get_one::<String>("version").unwrap().parse::<u8>().expect("Could not parse UUID version")
+                version: matches
+                    .get_one::<String>("version")
+                    .unwrap()
+                    .parse::<u8>()
+                    .expect("Could not parse UUID version"),
             }),
             _ => panic!("Unknown command"),
         },
@@ -172,15 +177,12 @@ fn create_cli_command() -> Command {
                     )
                     .action(clap::ArgAction::SetTrue),
                 ),
-        ).subcommand(
+        )
+        .subcommand(
             Command::new("uuid")
                 .about("Assign each file a UUID name.")
                 .arg(path_arg.clone())
-                .arg(
-                    Arg::new(
-                        "version"
-                    ).short('v').action(clap::ArgAction::Set)
-                )
+                .arg(Arg::new("version").short('v').action(clap::ArgAction::Set)),
         )
 }
 

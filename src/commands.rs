@@ -149,7 +149,6 @@ impl RenameCommand for Prefix {
     }
 }
 
-
 pub struct UuidCommand {
     pub version: u8,
 }
@@ -159,20 +158,20 @@ impl RenameCommand for UuidCommand {
         let uuid = match self.version {
             4 => Uuid::new_v4(),
             7 => Uuid::now_v7(),
-            _ => panic!("Unsupported uuid version")
+            _ => panic!("Unsupported uuid version"),
         };
         let new_name = uuid.to_string();
         let mut new_path = PathBuf::from(new_name);
         new_path.set_extension(
             match old_name.extension() {
                 Some(ext) => ext.to_string_lossy().to_string(),
-                None => String::new()
-            }.as_str()
+                None => String::new(),
+            }
+            .as_str(),
         );
         new_path
     }
 }
-
 
 #[cfg(test)]
 mod tests {
