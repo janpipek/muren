@@ -4,6 +4,7 @@ use regex::Regex;
 use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
 use unidecode::unidecode;
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct RenameIntent {
@@ -147,6 +148,31 @@ impl RenameCommand for Prefix {
         PathBuf::from(new_name)
     }
 }
+
+
+pub struct UuidCommand {
+    pub version: u8,
+}
+
+impl RenameCommand for UuidCommand {
+    fn suggest_new_name(&self, old_name: &Path) -> PathBuf {
+        let uuid = match self.version {
+            4 => Uuid::new_v4(),
+            7 => Uuid::now_v7(),
+            _ => panic!("Unsupported uuid version")
+        };
+        let new_name = uuid.to_string();
+        let mut new_path = PathBuf::from(new_name);
+        new_path.set_extension(
+            match old_name.extension() {
+                Some(ext) => ext.to_string_lossy().to_string(),
+                None => String::new()
+            }.as_str()
+        );
+        new_path
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
