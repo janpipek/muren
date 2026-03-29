@@ -3,8 +3,8 @@ use std::{env, path::PathBuf};
 use clap::{Arg, ArgAction, ArgMatches, Command, arg, command, value_parser};
 
 use muren::commands::{
-    ChangeCase, FixExtension, Normalize, Prefix, Remove, RenameCommand, Replace, SetExtension,
-    UuidCommand,
+    ChangeCaseCommand, FixExtensionCommand, Normalize, PrefixCommand, RemoveCommand, RenameCommand,
+    ReplaceCommand, SetExtension, UuidCommand,
 };
 use muren::{Config, run};
 
@@ -31,22 +31,22 @@ fn extract_command(args_matches: &ArgMatches) -> Box<dyn RenameCommand> {
             "set-ext" => Box::new(SetExtension {
                 extension: matches.get_one::<String>("extension").unwrap().clone(),
             }),
-            "remove" => Box::new(Remove {
+            "remove" => Box::new(RemoveCommand {
                 pattern: matches.get_one::<String>("pattern").unwrap().clone(),
             }),
             "normalize" => Box::new(Normalize),
-            "fix-ext" => Box::new(FixExtension {
+            "fix-ext" => Box::new(FixExtensionCommand {
                 append: matches.get_flag("append"),
             }),
-            "prefix" => Box::new(Prefix {
+            "prefix" => Box::new(PrefixCommand {
                 prefix: matches.get_one::<String>("prefix").unwrap().clone(),
             }),
-            "replace" => Box::new(Replace {
+            "replace" => Box::new(ReplaceCommand {
                 pattern: matches.get_one::<String>("pattern").unwrap().clone(),
                 replacement: matches.get_one::<String>("replacement").unwrap().clone(),
                 is_regex: matches.get_flag("regex"),
             }),
-            "change-case" => Box::new(ChangeCase {
+            "change-case" => Box::new(ChangeCaseCommand {
                 upper: matches.get_flag("upper"),
             }),
             "uuid" => Box::new(UuidCommand {

@@ -70,24 +70,31 @@ impl RenameCommand for SetExtension {
     }
 }
 
-pub struct Remove {
+// Remove any occurrences of the pattern in the file name
+pub struct RemoveCommand {
     pub pattern: String,
 }
 
-impl RenameCommand for Remove {
+impl RenameCommand for RemoveCommand {
     fn suggest_new_name(&self, old_name: &Path) -> PathBuf {
         let new_name = old_name.to_string_lossy().replace(&self.pattern, "");
         PathBuf::from(new_name)
     }
 }
 
-pub struct Replace {
+// Replace one pattern with another in the file name
+pub struct ReplaceCommand {
+    // Pattern to be replaced
     pub pattern: String,
+
+    // What will be placed in place of the pattern
     pub replacement: String,
+
+    // Whether the pattern is a regular expression
     pub is_regex: bool,
 }
 
-impl RenameCommand for Replace {
+impl RenameCommand for ReplaceCommand {
     fn suggest_new_name(&self, old_name: &Path) -> PathBuf {
         let path_str = old_name.to_string_lossy().to_string();
         let new_name = if self.is_regex {
@@ -100,11 +107,11 @@ impl RenameCommand for Replace {
     }
 }
 
-pub struct ChangeCase {
+pub struct ChangeCaseCommand {
     pub upper: bool,
 }
 
-impl RenameCommand for ChangeCase {
+impl RenameCommand for ChangeCaseCommand {
     fn suggest_new_name(&self, old_name: &Path) -> PathBuf {
         let path_str = old_name.to_string_lossy().to_string();
         let new_name = match self.upper {
@@ -115,11 +122,11 @@ impl RenameCommand for ChangeCase {
     }
 }
 
-pub struct FixExtension {
+pub struct FixExtensionCommand {
     pub append: bool,
 }
 
-impl RenameCommand for FixExtension {
+impl RenameCommand for FixExtensionCommand {
     fn suggest_new_name(&self, old_name: &Path) -> PathBuf {
         let possible_extensions = find_extensions_from_content(old_name);
         let mut new_name = old_name.to_path_buf();
@@ -137,11 +144,11 @@ impl RenameCommand for FixExtension {
     }
 }
 
-pub struct Prefix {
+pub struct PrefixCommand {
     pub prefix: String,
 }
 
-impl RenameCommand for Prefix {
+impl RenameCommand for PrefixCommand {
     fn suggest_new_name(&self, old_name: &Path) -> PathBuf {
         let mut new_name = self.prefix.clone();
         new_name.push_str(old_name.to_string_lossy().to_string().as_str());
@@ -197,7 +204,7 @@ mod tests {
     #[test]
     fn test_prefix() {
         assert_renames_correctly(
-            &Prefix {
+            &PrefixCommand {
                 prefix: String::from("a"),
             },
             &["b", "a"],
@@ -210,7 +217,7 @@ mod tests {
 
         #[test]
         fn test_regex() {
-            let command = Replace {
+            let command = ReplaceCommand {
                 pattern: String::from("\\d"),
                 replacement: String::from("a"),
                 is_regex: true,
@@ -224,7 +231,7 @@ mod tests {
 
         #[test]
         fn test_non_regex() {
-            let command = Replace {
+            let command = ReplaceCommand {
                 pattern: String::from("a.c"),
                 replacement: String::from("def"),
                 is_regex: false,
@@ -239,7 +246,7 @@ mod tests {
         #[test]
         fn test_upper() {
             assert_renames_correctly(
-                &ChangeCase { upper: true },
+                &ChangeCaseCommand { upper: true },
                 &["Abc", "hnědý", "Αθήνα", "mountAIN🗻"],
                 &["ABC", "HNĚDÝ", "ΑΘΉΝΑ", "MOUNTAIN🗻"],
             );
@@ -248,10 +255,31 @@ mod tests {
         #[test]
         fn test_lower() {
             assert_renames_correctly(
-                &ChangeCase { upper: false },
+                &ChangeCaseCommand { upper: false },
                 &["Abc", "hnědý", "Αθήνα", "mountAIN🗻"],
                 &["abc", "hnědý", "αθήνα", "mountain🗻"],
             );
+        }
+    }
+
+    mod test_uuid {
+        use super::*;
+        #[test]
+        fn test_v4_with_extension() {
+            let command = UuidCommand { version: 4 };
+            let old_name = "whatever.txt";
+            let path = command.suggest_new_name(&PathBuf::from(old_name));
+            let path_stem = path.file_stem().unwrap().to_str().unwrap();
+            assert!(Uuid::parse_str(path_stem).is_ok());
+            assert_eq!(path.extension().unwrap().to_str().unwrap(), "txt");
+        }
+
+        #[test]
+        fn test_v7_no_extension() {
+            let command = UuidCommand { version: 7 };
+            let old_name = "whatever";
+            let new_path = command.suggest_new_name(&PathBuf::from(old_name));
+            assert!(Uuid::parse_str(new_path.to_str().unwrap()).is_ok());
         }
     }
 
@@ -293,7 +321,7 @@ mod tests {
     #[test]
     fn test_remove() {
         assert_renames_correctly(
-            &Remove {
+            &RemoveCommand {
                 pattern: String::from("ab"),
             },
             &[".gitignore", "babe", "abABab"],
