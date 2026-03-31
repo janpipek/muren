@@ -1,4 +1,4 @@
-# muren(mu)ltiple (ren)ames
+# muren - (mu)ltiple (ren)ames
 
 Command-line utility for filename manipulations.
 
