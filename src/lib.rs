@@ -140,8 +140,8 @@ mod test {
             new_name: PathBuf::from("d"),
         };
 
-        assert!(all_target_names_unique(&[b_to_d, c_to_d.clone()]));
-        assert!(!all_target_names_unique(&[a_to_b, c_to_d]));
-        assert!(!all_target_names_unique(&Vec::new()));
+        assert!(!all_target_names_unique(&[b_to_d, c_to_d.clone()]));
+        assert!(all_target_names_unique(&[a_to_b, c_to_d]));
+        assert!(all_target_names_unique(&Vec::new()));
     }
 }
