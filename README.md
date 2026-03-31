@@ -5,14 +5,17 @@ Command-line utility for filename manipulations.
 ```
 Usage: muren [OPTIONS] [COMMAND]
 
-Commands:
-  set-ext    Change extension
-  prefix     Prefix with string
-  replace    Replace parts of the name
-  normalize  Convert names to reasonable ASCII.
-  fix-ext    Fix extension according to the file contents.
-  remove     Remove part of a name from all files.
-  help       Print this message or the help of the given subcommand(s)
+Comands:
+  set-ext      Change extension
+  prefix       Prefix with string
+  replace      Replace parts of the name
+  normalize    Convert names to reasonable ASCII.
+  fix-ext      Fix extension according to the file contents.
+  remove       Remove part of a name from all files.
+  change-case  Change case of all files.
+  uuid         Assign each file a UUID name.
+  help         Print this message or the help of the given subcommand(s)
+
 
 Options:
   -d, --dry      Dry run
