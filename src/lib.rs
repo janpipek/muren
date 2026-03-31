@@ -1,5 +1,5 @@
-pub mod commands;
 pub mod extensions;
+pub mod recipes;
 
 use colored::Colorize;
 use std::collections::HashSet;
@@ -8,16 +8,18 @@ use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
 extern crate unidecode;
-use crate::commands::{RenameCommand, RenameIntent};
+use crate::recipes::{RenameIntent, RenameRecipe};
 
+/// Configuration for the application
 pub struct Config {
-    pub command: Box<dyn RenameCommand>,
+    pub command: Box<dyn RenameRecipe>,
     pub dry: bool,
     pub files: Vec<PathBuf>,
     pub auto_confirm: bool,
     pub show_unchanged: bool,
 }
 
+/// Show all the renames and ask the user to confirm them
 fn confirm_intents(intents: &Vec<RenameIntent>) -> bool {
     println!("The following files will be renamed:");
     print_intents(intents, false);
@@ -36,6 +38,7 @@ fn print_intents(intents: &Vec<RenameIntent>, show_unchanged: bool) {
     }
 }
 
+/// Try to rename a file and report the result
 fn try_rename(path: &Path, new_name: &Path) -> bool {
     match rename(path, new_name) {
         Ok(_) => {
@@ -59,16 +62,16 @@ fn try_rename(path: &Path, new_name: &Path) -> bool {
     }
 }
 
-fn process_command(
-    command: &dyn RenameCommand,
+fn apply_recipe(
+    recipe: &dyn RenameRecipe,
     files: &[PathBuf],
     dry: bool,
     auto_confirm: bool,
     show_unchanged: bool,
 ) {
-    let intents = command.suggest_renames(files);
+    let intents = recipe.suggest_renames(files);
 
-    if contains_duplicates(&intents) {
+    if !all_target_names_unique(&intents) {
         print!("All target names are not unique!");
         print_intents(&intents, false);
         return;
@@ -98,17 +101,18 @@ fn process_command(
     };
 }
 
-fn contains_duplicates(intents: &[RenameIntent]) -> bool {
+fn all_target_names_unique(intents: &[RenameIntent]) -> bool {
     let new_names: Vec<PathBuf> = intents
         .iter()
         .map(|intent| intent.new_name.clone())
         .collect();
     let mut uniq = HashSet::new();
-    !new_names.into_iter().all(move |x| uniq.insert(x))
+    new_names.into_iter().all(move |x| uniq.insert(x))
 }
 
+/// Do the actual work
 pub fn run(config: &Config) {
-    process_command(
+    apply_recipe(
         config.command.deref(),
         &config.files,
         config.dry,
@@ -136,8 +140,8 @@ mod test {
             new_name: PathBuf::from("d"),
         };
 
-        assert!(contains_duplicates(&[b_to_d, c_to_d.clone()]));
-        assert!(!contains_duplicates(&[a_to_b, c_to_d]));
-        assert!(!contains_duplicates(&Vec::new()));
+        assert!(all_target_names_unique(&[b_to_d, c_to_d.clone()]));
+        assert!(!all_target_names_unique(&[a_to_b, c_to_d]));
+        assert!(!all_target_names_unique(&Vec::new()));
     }
 }

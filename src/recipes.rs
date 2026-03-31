@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use unidecode::unidecode;
 use uuid::Uuid;
 
+/// Suggestion to rename a file
 #[derive(Clone)]
 pub struct RenameIntent {
     pub old_name: PathBuf,
@@ -34,9 +35,12 @@ impl Display for RenameIntent {
     }
 }
 
-pub trait RenameCommand {
+/// A recipe to suggest new names for files
+pub trait RenameRecipe {
+    //// Use the recipe to find a new name for a file
     fn suggest_new_name(&self, old_name: &Path) -> PathBuf;
 
+    /// Use the recipe to find new names for multiple files
     fn suggest_renames(&self, files: &[PathBuf]) -> Vec<RenameIntent> {
         files
             .iter()
@@ -48,9 +52,10 @@ pub trait RenameCommand {
     }
 }
 
-pub struct Normalize;
+/// Convert file names to "reasonable characters" only
+pub struct NormalizeRecipe;
 
-impl RenameCommand for Normalize {
+impl RenameRecipe for NormalizeRecipe {
     fn suggest_new_name(&self, old_name: &Path) -> PathBuf {
         let path_str = old_name.to_string_lossy().to_string();
         let new_name = unidecode(&path_str).replace(' ', "_"); //#.to_lowercase();
@@ -58,11 +63,12 @@ impl RenameCommand for Normalize {
     }
 }
 
-pub struct SetExtension {
+/// Add an extension to the file names
+pub struct SetExtensionRecipe {
     pub extension: String,
 }
 
-impl RenameCommand for SetExtension {
+impl RenameRecipe for SetExtensionRecipe {
     fn suggest_new_name(&self, old_name: &Path) -> PathBuf {
         let mut new_name = old_name.to_path_buf();
         new_name.set_extension(&self.extension);
@@ -70,31 +76,31 @@ impl RenameCommand for SetExtension {
     }
 }
 
-// Remove any occurrences of the pattern in the file name
-pub struct RemoveCommand {
+/// Remove any occurrences of the pattern in the file name
+pub struct RemoveRecipe {
     pub pattern: String,
 }
 
-impl RenameCommand for RemoveCommand {
+impl RenameRecipe for RemoveRecipe {
     fn suggest_new_name(&self, old_name: &Path) -> PathBuf {
         let new_name = old_name.to_string_lossy().replace(&self.pattern, "");
         PathBuf::from(new_name)
     }
 }
 
-// Replace one pattern with another in the file name
-pub struct ReplaceCommand {
-    // Pattern to be replaced
+/// Replace one pattern with another in the file name
+pub struct ReplaceRecipe {
+    /// Pattern to be replaced
     pub pattern: String,
 
-    // What will be placed in place of the pattern
+    /// What will be placed in place of the pattern
     pub replacement: String,
 
-    // Whether the pattern is a regular expression
+    /// Whether the pattern is a regular expression
     pub is_regex: bool,
 }
 
-impl RenameCommand for ReplaceCommand {
+impl RenameRecipe for ReplaceRecipe {
     fn suggest_new_name(&self, old_name: &Path) -> PathBuf {
         let path_str = old_name.to_string_lossy().to_string();
         let new_name = if self.is_regex {
@@ -107,11 +113,12 @@ impl RenameCommand for ReplaceCommand {
     }
 }
 
-pub struct ChangeCaseCommand {
+/// Change the case of the file name
+pub struct ChangeCaseRecipe {
     pub upper: bool,
 }
 
-impl RenameCommand for ChangeCaseCommand {
+impl RenameRecipe for ChangeCaseRecipe {
     fn suggest_new_name(&self, old_name: &Path) -> PathBuf {
         let path_str = old_name.to_string_lossy().to_string();
         let new_name = match self.upper {
@@ -122,11 +129,12 @@ impl RenameCommand for ChangeCaseCommand {
     }
 }
 
-pub struct FixExtensionCommand {
+/// Automatically fix the extension based on the content of the file
+pub struct FixExtensionRecipe {
     pub append: bool,
 }
 
-impl RenameCommand for FixExtensionCommand {
+impl RenameRecipe for FixExtensionRecipe {
     fn suggest_new_name(&self, old_name: &Path) -> PathBuf {
         let possible_extensions = find_extensions_from_content(old_name);
         let mut new_name = old_name.to_path_buf();
@@ -144,11 +152,12 @@ impl RenameCommand for FixExtensionCommand {
     }
 }
 
-pub struct PrefixCommand {
+/// Add a prefix to the file names
+pub struct PrefixRecipe {
     pub prefix: String,
 }
 
-impl RenameCommand for PrefixCommand {
+impl RenameRecipe for PrefixRecipe {
     fn suggest_new_name(&self, old_name: &Path) -> PathBuf {
         let mut new_name = self.prefix.clone();
         new_name.push_str(old_name.to_string_lossy().to_string().as_str());
@@ -156,11 +165,18 @@ impl RenameCommand for PrefixCommand {
     }
 }
 
-pub struct UuidCommand {
+/// Generate a new UUID for the file names
+/// It can be either v4 or v7
+pub struct UuidRecipe {
+    /// Version of the UUID to generate
     pub version: u8,
 }
 
-impl RenameCommand for UuidCommand {
+impl UuidRecipe {
+    pub const DEFAULT_VERSION: u8 = 4;
+}
+
+impl RenameRecipe for UuidRecipe {
     fn suggest_new_name(&self, old_name: &Path) -> PathBuf {
         let uuid = match self.version {
             4 => Uuid::new_v4(),
@@ -187,7 +203,7 @@ mod tests {
 
     /// Compare whether old_names are converted to new expected_names using command.
     fn assert_renames_correctly(
-        command: &dyn RenameCommand,
+        command: &dyn RenameRecipe,
         old_names: &[&str],
         expected_names: &[&str],
     ) {
@@ -204,7 +220,7 @@ mod tests {
     #[test]
     fn test_prefix() {
         assert_renames_correctly(
-            &PrefixCommand {
+            &PrefixRecipe {
                 prefix: String::from("a"),
             },
             &["b", "a"],
@@ -217,7 +233,7 @@ mod tests {
 
         #[test]
         fn test_regex() {
-            let command = ReplaceCommand {
+            let command = ReplaceRecipe {
                 pattern: String::from("\\d"),
                 replacement: String::from("a"),
                 is_regex: true,
@@ -231,7 +247,7 @@ mod tests {
 
         #[test]
         fn test_non_regex() {
-            let command = ReplaceCommand {
+            let command = ReplaceRecipe {
                 pattern: String::from("a.c"),
                 replacement: String::from("def"),
                 is_regex: false,
@@ -246,7 +262,7 @@ mod tests {
         #[test]
         fn test_upper() {
             assert_renames_correctly(
-                &ChangeCaseCommand { upper: true },
+                &ChangeCaseRecipe { upper: true },
                 &["Abc", "hnědý", "Αθήνα", "mountAIN🗻"],
                 &["ABC", "HNĚDÝ", "ΑΘΉΝΑ", "MOUNTAIN🗻"],
             );
@@ -255,7 +271,7 @@ mod tests {
         #[test]
         fn test_lower() {
             assert_renames_correctly(
-                &ChangeCaseCommand { upper: false },
+                &ChangeCaseRecipe { upper: false },
                 &["Abc", "hnědý", "Αθήνα", "mountAIN🗻"],
                 &["abc", "hnědý", "αθήνα", "mountain🗻"],
             );
@@ -266,7 +282,7 @@ mod tests {
         use super::*;
         #[test]
         fn test_v4_with_extension() {
-            let command = UuidCommand { version: 4 };
+            let command = UuidRecipe { version: 4 };
             let old_name = "whatever.txt";
             let path = command.suggest_new_name(&PathBuf::from(old_name));
             let path_stem = path.file_stem().unwrap().to_str().unwrap();
@@ -276,7 +292,7 @@ mod tests {
 
         #[test]
         fn test_v7_no_extension() {
-            let command = UuidCommand { version: 7 };
+            let command = UuidRecipe { version: 7 };
             let old_name = "whatever";
             let new_path = command.suggest_new_name(&PathBuf::from(old_name));
             assert!(Uuid::parse_str(new_path.to_str().unwrap()).is_ok());
@@ -286,7 +302,7 @@ mod tests {
     #[test]
     fn test_normalize() {
         assert_renames_correctly(
-            &Normalize,
+            &NormalizeRecipe,
             &["Abc", "hnědý", "Αθήνα & Σπάρτη", "mountain🗻"],
             &["Abc", "hnedy", "Athena_&_Sparte", "mountain"],
         );
@@ -298,7 +314,7 @@ mod tests {
         #[test]
         fn test_no_extension() {
             assert_renames_correctly(
-                &SetExtension {
+                &SetExtensionRecipe {
                     extension: String::from(""),
                 },
                 &["a", "b", "c.jpg", ".gitignore"],
@@ -309,7 +325,7 @@ mod tests {
         #[test]
         fn test_some_extension() {
             assert_renames_correctly(
-                &SetExtension {
+                &SetExtensionRecipe {
                     extension: String::from("jpg"),
                 },
                 &["a", "b", "c.jpg", ".gitignore"],
@@ -321,7 +337,7 @@ mod tests {
     #[test]
     fn test_remove() {
         assert_renames_correctly(
-            &RemoveCommand {
+            &RemoveRecipe {
                 pattern: String::from("ab"),
             },
             &[".gitignore", "babe", "abABab"],

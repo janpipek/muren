@@ -2,12 +2,13 @@ use std::{env, path::PathBuf};
 
 use clap::{Arg, ArgAction, ArgMatches, Command, arg, command, value_parser};
 
-use muren::commands::{
-    ChangeCaseCommand, FixExtensionCommand, Normalize, PrefixCommand, RemoveCommand, RenameCommand,
-    ReplaceCommand, SetExtension, UuidCommand,
+use muren::recipes::{
+    ChangeCaseRecipe, FixExtensionRecipe, NormalizeRecipe, PrefixRecipe, RemoveRecipe,
+    RenameRecipe, ReplaceRecipe, SetExtensionRecipe, UuidRecipe,
 };
 use muren::{Config, run};
 
+/// Parse the command line arguments
 fn parse_config(matches: &ArgMatches) -> Config {
     let command = extract_command(matches);
     let files_args = matches.subcommand().unwrap().1.get_many::<PathBuf>("path");
@@ -24,35 +25,36 @@ fn parse_config(matches: &ArgMatches) -> Config {
     }
 }
 
-fn extract_command(args_matches: &ArgMatches) -> Box<dyn RenameCommand> {
+/// Extract the command from a subset of command line arguments
+fn extract_command(args_matches: &ArgMatches) -> Box<dyn RenameRecipe> {
     match args_matches.subcommand() {
         None => panic!("No command provided"),
         Some((m, matches)) => match m {
-            "set-ext" => Box::new(SetExtension {
+            "set-ext" => Box::new(SetExtensionRecipe {
                 extension: matches.get_one::<String>("extension").unwrap().clone(),
             }),
-            "remove" => Box::new(RemoveCommand {
+            "remove" => Box::new(RemoveRecipe {
                 pattern: matches.get_one::<String>("pattern").unwrap().clone(),
             }),
-            "normalize" => Box::new(Normalize),
-            "fix-ext" => Box::new(FixExtensionCommand {
+            "normalize" => Box::new(NormalizeRecipe),
+            "fix-ext" => Box::new(FixExtensionRecipe {
                 append: matches.get_flag("append"),
             }),
-            "prefix" => Box::new(PrefixCommand {
+            "prefix" => Box::new(PrefixRecipe {
                 prefix: matches.get_one::<String>("prefix").unwrap().clone(),
             }),
-            "replace" => Box::new(ReplaceCommand {
+            "replace" => Box::new(ReplaceRecipe {
                 pattern: matches.get_one::<String>("pattern").unwrap().clone(),
                 replacement: matches.get_one::<String>("replacement").unwrap().clone(),
                 is_regex: matches.get_flag("regex"),
             }),
-            "change-case" => Box::new(ChangeCaseCommand {
+            "change-case" => Box::new(ChangeCaseRecipe {
                 upper: matches.get_flag("upper"),
             }),
-            "uuid" => Box::new(UuidCommand {
+            "uuid" => Box::new(UuidRecipe {
                 version: matches
                     .get_one::<String>("version")
-                    .unwrap()
+                    .unwrap_or(&UuidRecipe::DEFAULT_VERSION.to_string())
                     .parse::<u8>()
                     .expect("Could not parse UUID version"),
             }),
@@ -187,8 +189,8 @@ fn create_cli_command() -> Command {
 }
 
 fn main() {
-    let command = create_cli_command();
-    let matches = command.get_matches();
+    let cli_command = create_cli_command();
+    let matches = cli_command.get_matches();
     let config = parse_config(&matches);
     run(&config);
 }

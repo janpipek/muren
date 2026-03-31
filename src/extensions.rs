@@ -35,29 +35,23 @@ fn infer_mimetype(path: &Path, mime_type: bool) -> Option<String> {
 pub fn find_extensions_from_content(path: &Path) -> Vec<String> {
     let mime_type_based = match infer_mimetype(path, true) {
         None => vec![],
-        Some(mime_type) => {
-            let mime_type_str = mime_type.as_str();
-            match mime_type_str {
-                "application/pdf" => vec![String::from("pdf")],
-                "image/jpeg" => vec![String::from("jpeg"), String::from("jpg")],
-                "image/png" => vec![String::from("png")],
-                "text/csv" => vec![String::from("csv")],
-                "text/html" => vec![String::from("html"), String::from("htm")],
-                "text/x-script.python" => vec![String::from("py"), String::from("pyw")],
-                _other => vec![],
-            }
-        }
+        Some(mime_type) => match mime_type.as_str() {
+            "application/pdf" => vec![String::from("pdf")],
+            "image/jpeg" => vec![String::from("jpeg"), String::from("jpg")],
+            "image/png" => vec![String::from("png")],
+            "text/csv" => vec![String::from("csv")],
+            "text/html" => vec![String::from("html"), String::from("htm")],
+            "text/x-script.python" => vec![String::from("py"), String::from("pyw")],
+            _other => vec![],
+        },
     };
 
     let mut description_based = match infer_mimetype(path, false) {
         None => vec![],
-        Some(description) => {
-            let description_str = description.as_str();
-            match description_str {
-                "Apache Parquet" => vec![String::from("parquet"), String::from("pq")],
-                _other => vec![],
-            }
-        }
+        Some(description) => match description.as_str() {
+            "Apache Parquet" => vec![String::from("parquet"), String::from("pq")],
+            _other => vec![],
+        },
     };
 
     let mut extensions = mime_type_based.clone();
@@ -66,16 +60,12 @@ pub fn find_extensions_from_content(path: &Path) -> Vec<String> {
 }
 
 pub fn has_correct_extension(path: &Path, possible_extensions: &[String]) -> bool {
-    if possible_extensions.is_empty() {
-        true
-    } else {
-        let current_extension = path.extension();
-        if current_extension.is_none() {
-            false
-        } else {
-            let extension = current_extension.unwrap().to_ascii_lowercase();
-            let extension_str = String::from(extension.to_string_lossy());
-            possible_extensions.contains(&extension_str)
+    possible_extensions.is_empty()
+        || match path.extension() {
+            Some(extension) => {
+                let extension_str = String::from(extension.to_ascii_lowercase().to_string_lossy());
+                possible_extensions.contains(&extension_str)
+            }
+            None => false,
         }
-    }
 }
