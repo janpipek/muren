@@ -12,8 +12,7 @@ fn infer_mimetype(path: &Path, mime_type: bool) -> Option<String> {
         cmd_with_args
     };
 
-    let output = cmd_with_args.output();
-    match output {
+    match cmd_with_args.output() {
         Ok(output) => {
             let output_str = String::from_utf8(output.stdout).unwrap();
             let mime_type = match output_str.strip_suffix('\n') {
